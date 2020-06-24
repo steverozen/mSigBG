@@ -173,10 +173,8 @@ MakeBackground <- function(bg.spectra, maxeval) {
 }
 
 SaveHepG2andMCF10ABackgroundInfo <- function() {
-  HepG2.background.info <-
-    MakeBackground(mSigAct::HepG2.background.spectra, 10000)
-  MCF10A.background.info <-
-    MakeBackground(mSigAct::MCF10A.background.spectra, 10000)
+  HepG2.background.info <- MakeBackground(HepG2.background.spectra, 10000)
+  MCF10A.background.info <- MakeBackground(MCF10A.background.spectra, 10000)
   usethis::use_data(HepG2.background.info, overwrite = TRUE)
   usethis::use_data(MCF10A.background.info, overwrite = TRUE)
 }
