@@ -12,6 +12,7 @@ Description: Separate out a "background" signature from observer mutational spet
 License: GPL-3
 Encoding: UTF-8
 Remotes: github::steverozen/ICAMS@master
+Depends: R (>= 3.5)
 LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.0
