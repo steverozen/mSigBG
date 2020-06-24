@@ -7,12 +7,18 @@ Authors@R:
            role = c("aut", "cre"),
            email = "first.last@example.com",
            comment = c(ORCID = "YOUR-ORCID-ID"))
-Description: What the package does (one paragraph).
-License: `use_mit_license()`, `use_gpl3_license()` or friends to
-    pick a license
+Description: Separate out a "background" signature from observer mutational spetra. Deigned for the
+    analysis of signatures from cell cultures exposed to mutagens.
+License: GPL-3
 Encoding: UTF-8
+Remotes: github::steverozen/ICAMS@master
 LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.0
+Imports:
+    ICAMS,
+    nloptr,
+    stats,
+    lsa
 Suggests: 
     testthat

@@ -37,5 +37,5 @@ RenderAllNitroExample <-
 
 
 if (FALSE) {
-  mSigAct:::RenderNitroExample("NDEA", bg.inflate.factor = 8)
+  mSigBG:::RenderNitroExample("NDEA", bg.inflate.factor = 8)
 }
