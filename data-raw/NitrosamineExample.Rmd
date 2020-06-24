@@ -204,12 +204,13 @@ bg.info$count.nbinom.size <- params[["count.nbinom.size"]]
 
 # if (params$whichnitro != "NDEA") { # Temporary, for possible debugging of script
 if (TRUE) { 
-ret <- 
-  SeparateSignatureFromBackground(
-    spectra     = spectra,
-    bg.sig.info = bg.info,
-    m.opts      = NULL,
-    start.b.fraction = 0.5)
+  set.seed(101010, kind = "L'Ecuyer-CMRG")
+  ret <- 
+    SeparateSignatureFromBackground(
+      spectra     = spectra,
+      bg.sig.info = bg.info,
+      m.opts      = NULL,
+      start.b.fraction = 0.5)
 } else {
   load(devtools::package_file("data-raw/saved.bg.Rdata"))
 }
@@ -227,7 +228,7 @@ inferred.sig <-
 colnames(inferred.sig) <- paste0("Inferred-", params$whichnitro, "-sig")
 ```
 
-### Inferred `r params$whichnitro` count signature and given HepG2 background signature 
+### Inferred `r params$whichnitro` count signature and HepG2 background signature 
 
 ```{r, plot.inferred.spectra.signature}
 
@@ -417,34 +418,26 @@ for (i in 0:(ncol(spectra) - 1)) {
 
 ### Is the inferred signature needed?
 
-```{r, sanity_check_1_is_target_needed, eval = FALSE}
+```{r, sanity_check_1_is_target_needed, eval = TRUE}
 library(mSigAct)
 m.opts <- mSigAct::DefaultManyOpts()
-tmp.fn <- function(spectrum) {
-  retval <- mSigAct::SignaturePresenceTest1(
-    spectrum         = spectrum,
-    sigs             = two.sigs,
-    target.sig.index = 1,
-    eval_f           = mSigAct::ObjFnBinomMaxLHNoRoundOK,
-    m.opts           = m.opts)
-  return(list(pval = retval$chisq.p, expwith = retval$exp.with))
-}
-apply(spectra, MARGIN = 2, tmp.fn)
+mSigAct::SignaturePresenceTest(
+  spectra          = spectra,
+  sigs             = two.sigs,
+  target.sig.index = 1,
+  eval_f           = mSigAct::ObjFnBinomMaxLHNoRoundOK,
+  m.opts           = m.opts)
+
 ```
 
 
 ### Is the background signature needed?
 
-```{r, sanity_check_2_is_backgrouind_needed, eval = FALSE}
-tmp.fn2 <- function(spectrum) {
-  retval <- mSigAct::SignaturePresenceTest1(
-    spectrum         = spectrum,
-    sigs             = two.sigs,
-    target.sig.index = 2,
-    eval_f           = mSigAct::ObjFnBinomMaxLHNoRoundOK,
-    m.opts           = m.opts)
-  return(list(pval = retval$chisq.p, expwith = retval$exp.with))
-}
-apply(spectra, MARGIN = 2, tmp.fn2)
-
+```{r, sanity_check_2_is_backgrouind_needed, eval = TRUE}
+mSigAct::SignaturePresenceTest(
+  spectra          = spectra,
+  sigs             = two.sigs,
+  target.sig.index = 2,
+  eval_f           = mSigAct::ObjFnBinomMaxLHNoRoundOK,
+  m.opts           = m.opts)
 ```

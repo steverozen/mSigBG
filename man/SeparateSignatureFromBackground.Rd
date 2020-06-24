@@ -63,10 +63,8 @@ mutation category, \eqn{j}, is estimated as
 Then \eqn{P(s^i|e^i)} is estimated as \eqn{\Pi_jP(s^i_j|e^i_j)}.
 
 \eqn{P(s^i_j|e^i_j)} is estimated from a negative binomial distribution
-centered on each \eqn{e^i_j}; these distributions all
-have a dispersion parameter
-of 10 (hard coded in \code{\link{ObjFn1}}), a value chosen based on tests with
-synthetic data.
+centered on each \eqn{e^i_j}; see the \code{sig.nbinom.size} elements of
+the \code{\link{background.info}} package variables.
 }
 \details{
 See \code{\link{ObjFn1}}.

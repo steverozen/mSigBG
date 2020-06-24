@@ -103,10 +103,8 @@ NegLLHOfSignature <- function(sig.and.nbinom.size, spectra) {
 #' Then \eqn{P(s^i|e^i)} is estimated as \eqn{\Pi_jP(s^i_j|e^i_j)}.
 #' 
 #' \eqn{P(s^i_j|e^i_j)} is estimated from a negative binomial distribution
-#' centered on each \eqn{e^i_j}; these distributions all
-#' have a dispersion parameter
-#' of 10 (hard coded in \code{\link{ObjFn1}}), a value chosen based on tests with 
-#' synthetic data. 
+#' centered on each \eqn{e^i_j}; see the \code{sig.nbinom.size} elements of
+#' the \code{\link{background.info}} package variables.
 #' 
 #' @param spectra The spectra from which to subtract the background,
 #'   as a matrix or \code{\link[ICAMS]{ICAMS}} catalog.
@@ -204,9 +202,11 @@ ObjFn1 <- function(
   obs.spectra,     
   bg.sig.info   # E.g. HepG2.background.info
 ) {
-  bg.sig.profile <- bg.sig.info$background.sig
-  stopifnot(!is.null(bg.sig.profile))
+  bg.sig.profile <- bg.sig.info[["background.sig"]]
+  
   stopifnot("matrix" %in% class(bg.sig.profile))
+  
+  
   len.sig <- nrow(bg.sig.profile)
   est.target.sig <- est.target.sig.and.b[1:len.sig]
   
@@ -231,11 +231,11 @@ ObjFn1 <- function(
     loglh1.i <- LLHSpectrumNegBinom(
       spectrum        = obs.spectrum,
       expected.counts = expected.counts,
-      nbinom.size     = 10)  # This is the dispersion parameter for each channel
+      nbinom.size     = bg.sig.info[["sig.nbinom.size"]])  # This is the dispersion parameter for each channel
  
     loglh2.i <- dnbinom(x    = round(b[i]), 
-                        mu   = bg.sig.info$count.nbinom.mu,
-                        size = bg.sig.info$count.nbinom.size, # This is the dispersion parameter for the number of background signature mutations
+                        mu   = bg.sig.info[["count.nbinom.mu"]],
+                        size = bg.sig.info[["count.nbinom.size"]], # This is the dispersion parameter for the number of background signature mutations
                         log  = TRUE)
     
     loglh <- loglh + loglh1.i + loglh2.i

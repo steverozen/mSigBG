@@ -29,7 +29,7 @@ See \code{\link[stats]{NegBinomial}}}
 
 }
 
-An object of class \code{list} of length 5.
+An object of class \code{list} of length 4.
 }
 \source{
 \code{HepG2.background.info} was estimated from \code{\link{HepG2.background.spectra}}.

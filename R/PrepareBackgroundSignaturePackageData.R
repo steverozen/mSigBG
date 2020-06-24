@@ -53,11 +53,11 @@ MakeMCF10HepG2BackgroundVars <- function() {
 #' @param spectra An \code{\link[ICAMS]{ICAMS}} \code{catalog} with 
 #' \code{catalog.type = "counts"}.
 #' 
-#' @param algorithm See \code{\link[nloptr]{nloptr}}.
-#' @param maxeval See \code{\link[nloptr]{nloptr}}.
-#' @param print_level See \code{\link[nloptr]{nloptr}}.
-#' @param xtol_rel See \code{\link[nloptr]{nloptr}}.
-#' @param xtol_abs See \code{\link[nloptr]{nloptr}}.
+# @param algorithm See \code{\link[nloptr]{nloptr}}.
+# @param maxeval See \code{\link[nloptr]{nloptr}}.
+# @param print_level See \code{\link[nloptr]{nloptr}}.
+# @param xtol_rel See \code{\link[nloptr]{nloptr}}.
+# @param xtol_abs See \code{\link[nloptr]{nloptr}}.
 #' 
 #' @return A list with the elements 
 #' \enumerate{
@@ -70,7 +70,7 @@ MakeMCF10HepG2BackgroundVars <- function() {
 #' \code{log10.counts.per.base}.
 #' }
 #' 
-#' @export
+#' @keywords internal
 #
 # Internal notes: this function could estimate the
 # dispersion for each channel separately, or we could
@@ -78,69 +78,69 @@ MakeMCF10HepG2BackgroundVars <- function() {
 # generating signature, the number of 
 # counts it produces, and its dispersion parameter.
 
-EstimateSignatureFromSpectraLH <-
-  function(spectra,
-           algorithm="NLOPT_LN_COBYLA",
-           maxeval=1000, 
-           print_level=0,
-           xtol_rel=0.001,  # 0.0001,)
-           xtol_abs=0.0001)
+Defunct.EstimateSignatureFromSpectraLH <-
+  function(spectra # ,
+           # algorithm="NLOPT_LN_COBYLA",
+           # maxeval=1000, 
+           # print_level=0,
+           # xtol_rel=0.001,  # 0.0001,)
+           # xtol_abs=0.0001
+           )
   {
-    # Maybe this is excessively "realistic"; maybe
-    # just take mean of spectra.
-    # It turns out that the result signature is exactly the mean.
-    # 
-    # But this can estimate the negative binomial dispersion
-    # parameter too, so perhaps useful.
+
+    if (FALSE) {
+      spectra.as.sigs <-
+        ICAMS::TransformCatalog(
+          spectra, 
+          target.catalog.type = "counts.signature",
+          target.abundance    = attr(spectra, "abundance", exact = TRUE))
+      
+      x0.sig.vec <- rowSums(spectra.as.sigs) / ncol(spectra)
+      # Start with a signature that is an average
+      
+      mean.sig <- matrix(x0.sig.vec, ncol = 1)
+      rownames(mean.sig) <- rownames(spectra)
+      mean.sig <- ICAMS::as.catalog(
+        mean.sig,
+        ref.genome   = NULL,
+        abundance    = attr(spectra, "abundance",    exact = TRUE),
+        region       = attr(spectra, "region",       exact = TRUE),
+        catalog.type = "counts.signature")
+    }
     
-    spectra.as.sigs <-
-      ICAMS::TransformCatalog(spectra, 
-                              target.catalog.type = "counts.signature",
-                              target.abundance    = 
-                                attr(spectra, "abundance", exact = TRUE))
-    x0.sig.vec <- rowSums(spectra.as.sigs) / ncol(spectra)
-    # Start with a signature that is an average
+    if (FALSE) { # code to remove
+      x0.sig.and.size <- c(x0.sig.vec, 200)
+      
+      ret <- nloptr::nloptr(
+        x0 = x0.sig.and.size,
+        eval_f = NegLLHOfSignature,
+        lb = rep(0, length(x0.sig.and.size)),
+        opts = list(algorithm   = algorithm,
+                    xtol_rel    = xtol_rel,
+                    print_level = print_level,
+                    maxeval     = maxeval),
+        spectra = spectra)
+      
+      len <- nrow(spectra)
+      sig <- matrix(ret$solution[1:len], ncol = 1)
+      rownames(sig) <- ICAMS::catalog.row.order$SBS96
+      sig <- sig / sum(sig)
+      sig <- ICAMS::as.catalog(
+        sig,
+        region       = attr(spectra.as.sigs, "region",     exact = TRUE),
+        abundance    = attr(spectra.as.sigs, "abundance",  exact = TRUE),
+        ref.genome   = NULL,
+        catalog.type = "counts.signature")
+      
+      nbinom.size <- ret$solution[len + 1]
+    }
     
-    mean.sig <- matrix(x0.sig.vec, ncol = 1)
-    rownames(mean.sig) <- rownames(spectra)
-    mean.sig <- ICAMS::as.catalog(
-      mean.sig,
-      ref.genome   = NULL,
-      abundance    = attr(spectra, "abundance",    exact = TRUE),
-      region       = attr(spectra, "region",       exact = TRUE),
-      catalog.type = "counts.signature")
-    
-    x0.sig.and.size <- c(x0.sig.vec, 200)
-    
-    ret <- nloptr::nloptr(
-      x0 = x0.sig.and.size,
-      eval_f = NegLLHOfSignature,
-      lb = rep(0, length(x0.sig.and.size)),
-      opts = list(algorithm   = algorithm,
-                  xtol_rel    = xtol_rel,
-                  print_level = print_level,
-                  maxeval     = maxeval),
-      spectra = spectra)
-    
-    len <- nrow(spectra)
-    sig <- matrix(ret$solution[1:len], ncol = 1)
-    rownames(sig) <- ICAMS::catalog.row.order$SBS96
-    sig <- sig / sum(sig)
-    sig <- ICAMS::as.catalog(
-      sig,
-      region       = attr(spectra.as.sigs, "region",     exact = TRUE),
-      abundance    = attr(spectra.as.sigs, "abundance",  exact = TRUE),
-      ref.genome   = NULL,
-      catalog.type = "counts.signature")
-    
-    nbinom.size <- ret$solution[len + 1]
-    
-    return(list(old.background.sig   = sig,
-                background.sig         = mean.sig,
-                nbinom.size      = nbinom.size,
-                count.nbinom.mu  = mean(colSums(spectra)),
-                count.binom.size = 20,
-                nloptr.ret       = ret))
+    return(list(# old.background.sig   = sig,
+                background.sig         = MeanOfSpectraAsSig(spectra),
+                nbinom.size            = 10, # nbinom.size,
+                count.nbinom.mu        = mean(colSums(spectra)),
+                count.binom.size       = 20,
+                nloptr.ret             = ret))
     
   }
 
@@ -150,33 +150,31 @@ EstimateSignatureFromSpectraLH <-
 #' @keywords internal
 #' 
 MakeBackground <- function(bg.spectra, maxeval) {
-  set.seed(3214)
+  # set.seed(3214)
 
   # Calculate parameters for a negative binomial 
   # distribution modeling the
   # number of mutations generated by the signature.
-  count.nbinom.mu <- mean(colSums(bg.spectra))
-  count.nbinom.size <- 20 # determined manually TODO(Steve): analytical formula?
+  # count.nbinom.mu <- mean(colSums(bg.spectra))
+  #count.nbinom.size <- 20 # determined manually TODO(Steve): analytical formula?
   
   
-  ret2 <-
-    EstimateSignatureFromSpectraLH(
-      bg.spectra,
-      maxeval = maxeval, 
-      print_level = 1)
+  #ret2 <-
+  #  EstimateSignatureFromSpectraLH(
+  #    bg.spectra # ,
+      # maxeval = maxeval, 
+      # print_level = 1
+  #    )
   
-  return(list(background.sig    = ret2[["background.sig"]],
-              mean.sig          = ret2[["mean.sig"]],
-              sig.nbinom.size   = ret2[["nbinom.size"]],
-              count.nbinom.mu   = count.nbinom.mu, 
-              count.nbinom.size = count.nbinom.size))
+  return(list(background.sig    = MeanOfSpectraAsSig(bg.spectra),
+              sig.nbinom.size   = 10,
+              count.nbinom.mu   = mean(colSums(bg.spectra)), 
+              count.nbinom.size = 20))
 }
 
 SaveHepG2andMCF10ABackgroundInfo <- function() {
-  HepG2.background.info <- 
-    MakeBackground(mSigBG::HepG2.background.spectra, 10000)
-  MCF10A.background.info <- 
-    MakeBackground(mSigBG::MCF10A.background.spectra, 10000)
+  HepG2.background.info <- MakeBackground(mSigBG::HepG2.background.spectra)
+  MCF10A.background.info <- MakeBackground(mSigBG::MCF10A.background.spectra)
   usethis::use_data(HepG2.background.info, overwrite = TRUE)
   usethis::use_data(MCF10A.background.info, overwrite = TRUE)
 }
