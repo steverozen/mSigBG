@@ -3,13 +3,14 @@ author: "Steve Rozen"
 output: html_document
 date: '`r Sys.Date()`'
 params:
-  whichnitro: NDMA
+  whichnitro: NDEA
   bgfactor: 2
   showrecon: TRUE
-  showbgspec: FALSE
+  showbgspec: TRUE
   onefhigh: 2.5
   verbose: TRUE
-  count.nbinom.size: 5
+  count.nbinom.size: 20
+  
 title: '`r paste("Background Subtraction for", params$whichnitro, "with Parameters Shown Below")`'  
 ---
 
@@ -17,6 +18,18 @@ title: '`r paste("Background Subtraction for", params$whichnitro, "with Paramete
 knitr::opts_chunk$set(echo = TRUE)
 ```
 ## Parameters
+
+```{r, tmp.params, eval=FALSE}
+
+params$whichnitro <- "NDEA"
+params$bgfactor <- 1
+params$showrecon <- TRUE
+params$showbgspec <- TRUE
+params$onefhigh <- 2.5
+params$verbose <- TRUE
+params$count.nbinom.size <- 20
+
+```
 
 ### Inflation for mean number of background mutations = `r params[["bgfactor"]]`.
 
@@ -198,7 +211,10 @@ pcat(ICAMS::TransformCatalog(spectra,
 ## Decompose the background and the signature of `r params$whichnitro`
 
 ```{r subtract}
-bg.info <- mSigBG::HepG2.background.info
+bg.info <- HepG2.background.info
+# debug(ICAMS::PlotCatalog)
+# ICAMS::PlotCatalog(bg.info$background.sig)
+
 bg.info$count.nbinom.mu <- params$bgfactor * bg.info$count.nbinom.mu
 bg.info$count.nbinom.size <- params[["count.nbinom.size"]]
 
@@ -211,12 +227,14 @@ if (TRUE) {
       bg.sig.info = bg.info,
       m.opts      = NULL,
       start.b.fraction = 0.5)
+  ICAMS::PlotCatalog(bg.info$background.sig)
 } else {
   load(devtools::package_file("data-raw/saved.bg.Rdata"))
 }
 ```
 
 ```{r inferred_sig_as_catalog}
+# debug(ICAMS::as.catalog)
 inferred.sig <- 
   ICAMS::as.catalog(
     object         = ret$inferred.target.sig, 
@@ -230,14 +248,22 @@ colnames(inferred.sig) <- paste0("Inferred-", params$whichnitro, "-sig")
 
 ### Inferred `r params$whichnitro` count signature and HepG2 background signature 
 
-```{r, plot.inferred.spectra.signature}
-
+```{r, prep.plot.inferred.spectra.signature}
+# debug(ICAMS::PlotCatalog)
+# ICAMS::PlotCatalog(bg.info$background.sig)
+stopifnot(is.numeric(attr(inferred.sig, "abundance")))
+stopifnot(is.numeric(attr(bg.info$background.sig, "abundance")))
 two.sigs <- cbind(inferred.sig, bg.info$background.sig)
+# ICAMS::PlotCatalog(bg.info$background.sig)
+stopifnot(is.numeric(attr(two.sigs, "abundance")))
+```
+
+```{r, plot.inferred.spectra.signature}
 pcat(two.sigs)
+attr(two.sigs, "abundance")
 ```
 
 #### Inferred `r params$whichnitro` density signature and given HepG2 background signature 
-
 
 ```{r, plot.inferred.density}
 pcat(ICAMS::TransformCatalog(two.sigs, 
@@ -297,7 +323,7 @@ cossim <- function(v1, v2) {
 
 ```{r, sub_inferred_vs_direct_inferred}
 
-sigx <- mSigBG::MeanOfSpectraAsSig(subtracted.target.spectra)
+sigx <- MeanOfSpectraAsSig(subtracted.target.spectra)
 cossim(sigx, inferred.sig)
 
 ```
@@ -421,6 +447,7 @@ for (i in 0:(ncol(spectra) - 1)) {
 ```{r, sanity_check_1_is_target_needed, eval = TRUE}
 library(mSigAct)
 m.opts <- mSigAct::DefaultManyOpts()
+debut(mSigAct::SignaturePresenceTest)
 mSigAct::SignaturePresenceTest(
   spectra          = spectra,
   sigs             = two.sigs,

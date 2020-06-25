@@ -34,7 +34,9 @@ RenderAllNitroExample <-
     }
   }
 
-
+if (FALSE) {
+  RenderAllNitroExample(); RenderAllNitroExample(count.nbinom.size = 1) 
+}
 
 if (FALSE) {
   mSigBG:::RenderNitroExample("NDEA", bg.inflate.factor = 8)
