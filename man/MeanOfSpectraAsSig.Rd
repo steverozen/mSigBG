@@ -4,11 +4,13 @@
 \alias{MeanOfSpectraAsSig}
 \title{Return the mean of multiple spectra as a signature.}
 \usage{
-MeanOfSpectraAsSig(spectra)
+MeanOfSpectraAsSig(spectra, title = "sig.from.spectra.mean")
 }
 \arguments{
 \item{spectra}{Convert each spectrum to a signature and then compute the
 mean of all signatures.}
+
+\item{title}{The name of the column in the output signature.}
 }
 \description{
 Return the mean of multiple spectra as a signature.

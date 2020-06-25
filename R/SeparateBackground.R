@@ -60,6 +60,22 @@ NegLLHOfSignature <- function(sig.and.nbinom.size, spectra) {
 }
 
 
+test_g_ineq <- function(est.target.sig.and.b, # Parameters to optimize
+                        obs.spectra,     
+                        bg.sig.info ) {
+  
+  bg.sig.profile <- bg.sig.info[["background.sig"]]
+  
+  stopifnot("matrix" %in% class(bg.sig.profile))
+  
+  
+  len.sig <- nrow(bg.sig.profile)
+
+  x1 <- est.target.sig.and.b[1:len.sig]
+  abs(1 - sum(x1))  
+}
+
+
 #' Estimate a signature from experimentally exposed spectra minus a background signature.
 #' 
 #' @description 
@@ -120,16 +136,6 @@ NegLLHOfSignature <- function(sig.and.nbinom.size, spectra) {
 #' @details
 #' See \code{\link{ObjFn1}}.
 #' 
-# Ignore this note: I guess you could estimate "background" and "target.sig"
-# at the same time, but then background might be slightly (?)
-# different for each set of input spectra. To do that would
-# include the likelihoods
-# background.s1 | background.sig, background.sig.nbinom.size
-# background.s2 | background.sig, background.sig.nbinom.size
-# and include a maximization over background.sig and
-# background.sig.nbinom.size
-# ....
-# 
 #' @export
 
 SeparateSignatureFromBackground <-
@@ -155,6 +161,8 @@ SeparateSignatureFromBackground <-
       
       eval_f      = ObjFn1,
       
+      eval_g_ineq = test_g_ineq,
+      
       lb          = rep(0, length(est.target.sig.and.b.x0)),
       
       ub          = c(upper.bounds.of.target.sig, 
@@ -171,8 +179,16 @@ SeparateSignatureFromBackground <-
     
     bg.exposure <- soln[(1 + nrow(spectra)):length(soln)]
     obs.counts  <- colSums(spectra)
-    
-    return(list(inferred.target.sig     = soln[1:nrow(spectra)],
+  
+    sig.to.return <- soln[1:nrow(spectra)]
+    sum.sig <- sum(sig.to.return)
+    is.one <- all.equal(1, sum.sig, tolerance = 1e-6)
+    if (is.character(is.one)) {
+      message("Sum of elements in inferred signature is not 1; ", is.one)
+    }
+    # sum.sig is probably not quite equal to 1
+    sig.to.return <- sig.to.return / sum.sig    
+    return(list(inferred.target.sig     = sig.to.return,
                 exposures.to.target.sig = obs.counts - bg.exposure,
                 exposures.to.bg.sig     = bg.exposure,
                 message                 = ret$message,
@@ -277,14 +293,15 @@ Nloptr2Signature <- function(nloptr.retval, sig.number = 96) {
   return(Solution2Signature(nloptr.retval$solution, sig.number))
 }
 
+
 #' Return a default value to pass as the \code{m.opts} argument to \code{\link{SeparateSignatureFromBackground}}.
 SeparateSignatureFromBackgroundOptions <- function() {
   return(
     list(algorithm = "NLOPT_LN_COBYLA",
          maxeval = 20000, 
          print_level = 0,
-         xtol_rel = 0.00001,  # 0.0001,)
-         xtol_abs = 1e-06
+         xtol_rel = 0.000001,  # 0.0001,)
+         xtol_abs = 1e-07 # 1e-06
          )
   )
 }

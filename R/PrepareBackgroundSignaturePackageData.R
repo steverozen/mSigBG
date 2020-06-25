@@ -41,126 +41,33 @@ MakeMCF10HepG2BackgroundVars <- function() {
 }
 
 
-#' Build a signature for background extraction from a matrix of spectra.
-#' 
-#' This function not only produces a signature, but also an
-#' estimate of the number of mutations usually generated
-#' by the signature and an indication of variability around
-#' that estimate.
-#' 
-#' Only works on SBS 96 signatures.
-#' 
-#' @param spectra An \code{\link[ICAMS]{ICAMS}} \code{catalog} with 
-#' \code{catalog.type = "counts"}.
-#' 
-# @param algorithm See \code{\link[nloptr]{nloptr}}.
-# @param maxeval See \code{\link[nloptr]{nloptr}}.
-# @param print_level See \code{\link[nloptr]{nloptr}}.
-# @param xtol_rel See \code{\link[nloptr]{nloptr}}.
-# @param xtol_abs See \code{\link[nloptr]{nloptr}}.
-#' 
-#' @return A list with the elements 
-#' \enumerate{
-#' \item \code{signature} An \code{\link[ICAMS]{ICAMS}}
-#' \code{catalog} with
-#' \code{catalog.type == "counts.signature"}.
-#' \item \code{log10.counts} Mean log base 10 of the 
-#' total counts in \code{spectra}
-#' \item \code{sd.log10.counts.per.base} Standard deviation of 
-#' \code{log10.counts.per.base}.
-#' }
-#' 
-#' @keywords internal
-#
-# Internal notes: this function could estimate the
-# dispersion for each channel separately, or we could
-# even find the maximum likelihood estimate of the
-# generating signature, the number of 
-# counts it produces, and its dispersion parameter.
-
-Defunct.EstimateSignatureFromSpectraLH <-
-  function(spectra # ,
-           # algorithm="NLOPT_LN_COBYLA",
-           # maxeval=1000, 
-           # print_level=0,
-           # xtol_rel=0.001,  # 0.0001,)
-           # xtol_abs=0.0001
-           )
-  {
-
-    if (FALSE) {
-      spectra.as.sigs <-
-        ICAMS::TransformCatalog(
-          spectra, 
-          target.catalog.type = "counts.signature",
-          target.abundance    = attr(spectra, "abundance", exact = TRUE))
-      
-      x0.sig.vec <- rowSums(spectra.as.sigs) / ncol(spectra)
-      # Start with a signature that is an average
-      
-      mean.sig <- matrix(x0.sig.vec, ncol = 1)
-      rownames(mean.sig) <- rownames(spectra)
-      mean.sig <- ICAMS::as.catalog(
-        mean.sig,
-        ref.genome   = NULL,
-        abundance    = attr(spectra, "abundance",    exact = TRUE),
-        region       = attr(spectra, "region",       exact = TRUE),
-        catalog.type = "counts.signature")
-    }
-    
-    if (FALSE) { # code to remove
-      x0.sig.and.size <- c(x0.sig.vec, 200)
-      
-      ret <- nloptr::nloptr(
-        x0 = x0.sig.and.size,
-        eval_f = NegLLHOfSignature,
-        lb = rep(0, length(x0.sig.and.size)),
-        opts = list(algorithm   = algorithm,
-                    xtol_rel    = xtol_rel,
-                    print_level = print_level,
-                    maxeval     = maxeval),
-        spectra = spectra)
-      
-      len <- nrow(spectra)
-      sig <- matrix(ret$solution[1:len], ncol = 1)
-      rownames(sig) <- ICAMS::catalog.row.order$SBS96
-      sig <- sig / sum(sig)
-      sig <- ICAMS::as.catalog(
-        sig,
-        region       = attr(spectra.as.sigs, "region",     exact = TRUE),
-        abundance    = attr(spectra.as.sigs, "abundance",  exact = TRUE),
-        ref.genome   = NULL,
-        catalog.type = "counts.signature")
-      
-      nbinom.size <- ret$solution[len + 1]
-    }
-    
-    return(list(# old.background.sig   = sig,
-                background.sig         = MeanOfSpectraAsSig(spectra),
-                nbinom.size            = 10, # nbinom.size,
-                count.nbinom.mu        = mean(colSums(spectra)),
-                count.binom.size       = 20,
-                nloptr.ret             = ret))
-    
-  }
-
-
 #' Estimate a background signature.
 #' 
-#' @keywords internal
+#' @param bg.specta The spectra from which to compute the background information.
 #' 
-MakeBackground <- function(bg.spectra) {
+#' @param title The name of the single column in the output.
+#' 
+#' @return An single column \code{\link[ICAMS]{ICAMS}} catalog.
+#' 
+#' @export
+#' 
+MakeBackgroundInfo <- function(bg.spectra, title = "Background.sig") {
 
-  return(list(background.sig    = MeanOfSpectraAsSig(bg.spectra),
+  return(list(background.sig    = MeanOfSpectraAsSig(bg.spectra, title),
               sig.nbinom.size   = 10,
               count.nbinom.mu   = mean(colSums(bg.spectra)), 
               count.nbinom.size = 20))
 }
 
+#' Create \code{\link{background.info}} package variables.
+#'
+#' Call this function to create the package variables HepG2.background
+#' and MCF10A.background.
 SaveHepG2andMCF10ABackgroundInfo <- function() {
-  HepG2.background.info <- MakeBackground(mSigBG::HepG2.background.spectra)
-  MCF10A.background.info <- MakeBackground(mSigBG::MCF10A.background.spectra)
+  HepG2.background.info <- 
+    MakeBackgroundInfo(mSigBG::HepG2.background.spectra, "HepG2.background")
+  MCF10A.background.info <- 
+    MakeBackgroundInfo(mSigBG::MCF10A.background.spectra, "MCF10A.background")
   usethis::use_data(HepG2.background.info, overwrite = TRUE)
   usethis::use_data(MCF10A.background.info, overwrite = TRUE)
 }
-

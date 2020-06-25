@@ -19,18 +19,6 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 ## Parameters
 
-```{r, tmp.params, eval=FALSE}
-
-params$whichnitro <- "NDEA"
-params$bgfactor <- 1
-params$showrecon <- TRUE
-params$showbgspec <- TRUE
-params$onefhigh <- 2.5
-params$verbose <- TRUE
-params$count.nbinom.size <- 20
-
-```
-
 ### Inflation for mean number of background mutations = `r params[["bgfactor"]]`.
 
 ### Dispersion parameter for number of background mutations = `r params[["count.nbinom.size"]]`.
@@ -212,29 +200,27 @@ pcat(ICAMS::TransformCatalog(spectra,
 
 ```{r subtract}
 bg.info <- HepG2.background.info
-# debug(ICAMS::PlotCatalog)
-# ICAMS::PlotCatalog(bg.info$background.sig)
 
 bg.info$count.nbinom.mu <- params$bgfactor * bg.info$count.nbinom.mu
 bg.info$count.nbinom.size <- params[["count.nbinom.size"]]
 
-# if (params$whichnitro != "NDEA") { # Temporary, for possible debugging of script
-if (TRUE) { 
-  set.seed(101010, kind = "L'Ecuyer-CMRG")
-  ret <- 
-    SeparateSignatureFromBackground(
-      spectra     = spectra,
-      bg.sig.info = bg.info,
-      m.opts      = NULL,
-      start.b.fraction = 0.5)
-  ICAMS::PlotCatalog(bg.info$background.sig)
-} else {
-  load(devtools::package_file("data-raw/saved.bg.Rdata"))
-}
+set.seed(101010, kind = "L'Ecuyer-CMRG")
+ret <- 
+  SeparateSignatureFromBackground(
+    spectra     = spectra,
+    bg.sig.info = bg.info,
+    m.opts      = NULL,
+    start.b.fraction = 0.5)
+
+```{r}
+ret$all.opt.ret$message
+```
+
+```{r}
+ret$all.opt.ret$status
 ```
 
 ```{r inferred_sig_as_catalog}
-# debug(ICAMS::as.catalog)
 inferred.sig <- 
   ICAMS::as.catalog(
     object         = ret$inferred.target.sig, 
@@ -246,39 +232,28 @@ inferred.sig <-
 colnames(inferred.sig) <- paste0("Inferred-", params$whichnitro, "-sig")
 ```
 
-### Inferred `r params$whichnitro` count signature and HepG2 background signature 
-
-```{r, prep.plot.inferred.spectra.signature}
-# debug(ICAMS::PlotCatalog)
-# ICAMS::PlotCatalog(bg.info$background.sig)
-stopifnot(is.numeric(attr(inferred.sig, "abundance")))
-stopifnot(is.numeric(attr(bg.info$background.sig, "abundance")))
-two.sigs <- cbind(inferred.sig, bg.info$background.sig)
-# ICAMS::PlotCatalog(bg.info$background.sig)
-stopifnot(is.numeric(attr(two.sigs, "abundance")))
-```
+### Inferred `r params$whichnitro` count signature the HepG2 background signature 
 
 ```{r, plot.inferred.spectra.signature}
+two.sigs <- cbind(inferred.sig, bg.info$background.sig)
 pcat(two.sigs)
-attr(two.sigs, "abundance")
 ```
 
-#### Inferred `r params$whichnitro` density signature and given HepG2 background signature 
+#### Inferred `r params$whichnitro` density signature and the HepG2 background signature 
 
 ```{r, plot.inferred.density}
 pcat(ICAMS::TransformCatalog(two.sigs, 
                              target.catalog.type = "density.signature"))
 ```
 
-
 ## Calculate and plot inferred components of the spectra
-
 
 ### Inferred background spectra
 
 ```{r, plot.inferred.background.spectra}
 total.counts <- apply(spectra, MARGIN = 2, sum)
 total.counts
+colSums(spectra)
 
 bg.counts <- total.counts - ret$exposures.to.target.sig
 bg.counts
@@ -295,6 +270,7 @@ colnames(inferred.bg.spectra) <- paste0(colnames(spectra), "-inf-bg-spect")
 ```{r, pl_inferred_bg_spec, eval=params$showbgspec, echo=params$showbgspec}
 pcat(inferred.bg.spectra)
 ```
+
 ### Spectra due to `r params$whichnitro`, as inferred by subtraction
 
 ```{r, plot.inferred.target.spectra}
@@ -303,7 +279,6 @@ pcat(subtracted.target.spectra)
 ```
 
 ### Signature based on subtracted spectra compared to directly inferred signature
-
 
 ```{r, cossim}
 cossim <- function(v1, v2) {
@@ -367,7 +342,6 @@ add.arrows(bp, arrow.tops, arrow.bottoms)
 ### Show combined background and target spectra
 
 ```{r, plot.combined.count}
-# debug(stacked.pcat)
 stacked.pcat(inferred.bg.spectra, subtracted.target.spectra)
 ```
 
@@ -447,24 +421,37 @@ for (i in 0:(ncol(spectra) - 1)) {
 ```{r, sanity_check_1_is_target_needed, eval = TRUE}
 library(mSigAct)
 m.opts <- mSigAct::DefaultManyOpts()
-debut(mSigAct::SignaturePresenceTest)
-mSigAct::SignaturePresenceTest(
+retval <- mSigAct::SignaturePresenceTest(
   spectra          = spectra,
   sigs             = two.sigs,
   target.sig.index = 1,
   eval_f           = mSigAct::ObjFnBinomMaxLHNoRoundOK,
   m.opts           = m.opts)
-
 ```
 
+P values versus the null that the spectra
+can be reconstructed reasonably well without the inferred target
+signature.
+
+```{r, sig.pres.sig.p.values}
+lapply(retval, function(x) x$chisq.p)
+```
 
 ### Is the background signature needed?
 
 ```{r, sanity_check_2_is_backgrouind_needed, eval = TRUE}
-mSigAct::SignaturePresenceTest(
+retval <- mSigAct::SignaturePresenceTest(
   spectra          = spectra,
   sigs             = two.sigs,
   target.sig.index = 2,
   eval_f           = mSigAct::ObjFnBinomMaxLHNoRoundOK,
   m.opts           = m.opts)
+```
+
+P values versus the null that the spectra
+can be reconstructed reasonably well without the background
+signature.
+
+```{r, sig.pres.bg.p.values}
+lapply(retval, function(x) x$chisq.p)
 ```

@@ -3,12 +3,14 @@
 #' @param spectra Convert each spectrum to a signature and then compute the
 #'   mean of all signatures.
 #'   
+#' @param title The name of the column in the output signature.
+#'   
 #' @export
 #' 
-MeanOfSpectraAsSig <- function(spectra) {
+MeanOfSpectraAsSig <- function(spectra, title = "sig.from.spectra.mean") {
   
   if (is.null(spectra)) {
-    stop("Input argument of MeanOfSpetra is NULL")
+    stop("Argument spectra is NULL")
   }
   
   ctype <- attr(spectra, "catalog.type", exact = TRUE)
@@ -43,7 +45,7 @@ MeanOfSpectraAsSig <- function(spectra) {
                       abundance      = target.abundance,
                       infer.rownames = TRUE)
   
-  colnames(mean.sig) <- "mean.spectra.based.sig"
+  colnames(mean.sig) <- title
   
   return(mean.sig)
 }

@@ -1,16 +1,17 @@
 Package: mSigBG
-Title: What the Package Does (One Line, Title Case)
-Version: 0.0.0.9001
+Title: Separate Background Mutational Signature from Signature Due to a Mutagen
+Version: 0.0.0.9002
 Authors@R: 
-    person(given = "First",
-           family = "Last",
+    person(given = "Steven",
+           family = "Rozen",
            role = c("aut", "cre"),
            email = "first.last@example.com",
-           comment = c(ORCID = "YOUR-ORCID-ID"))
-Description: Separate out a "background" signature from observer mutational spetra. Deigned for the
-    analysis of signatures from cell cultures exposed to mutagens.
+           comment = c(ORCID = "0000-0002-4288-0056"))
+Description: Separate a "background mutational signature" from observed mutational spectra. 
+    Deigned for the delineation of signatures from cell cultures exposed to mutagens.
 License: GPL-3
 Encoding: UTF-8
+Language: en-US
 Remotes: github::steverozen/ICAMS@master
 Depends: R (>= 3.5)
 LazyData: true
