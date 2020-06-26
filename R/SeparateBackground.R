@@ -254,6 +254,15 @@ ObjFn1 <- function(
                         size = bg.sig.info[["count.nbinom.size"]], # This is the dispersion parameter for the number of background signature mutations
                         log  = TRUE)
     
+    # We might try a different distribtuion, e.g. draw from 
+    # hist(rgamma(100000, shape = 8, rate = 6) * 1534 / (8 / 6))
+    # or
+    # rgamma(100000, shape = 8, rate = 3) * 1534 / (8 / 3))
+    # rather than 
+    # hist(rnbinom(10000, mu = 1534, size = 3))
+    # or
+    # hist(0.1 * rnbinom(10000, mu = 15340, size = 4))
+    
     loglh <- loglh + loglh1.i + loglh2.i
   }
   
