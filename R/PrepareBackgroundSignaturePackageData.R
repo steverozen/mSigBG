@@ -59,15 +59,13 @@ MakeBackgroundInfo <- function(bg.spectra, title = "Background.sig") {
               count.nbinom.size = 20))
 }
 
-#' Create \code{\link{background.info}} package variables.
-#'
-#' Call this function to create the package variables HepG2.background
-#' and MCF10A.background.
-SaveHepG2andMCF10ABackgroundInfo <- function() {
+# Run this code to create the package variables HepG2.background
+# and MCF10A.background.
+if (FALSE) {
   HepG2.background.info <- 
-    MakeBackgroundInfo(mSigBG::HepG2.background.spectra, "HepG2.background")
+    MakeBackgroundInfo(mSigBG::HepG2.background.spectra, title = "HepG2.background")
   MCF10A.background.info <- 
-    MakeBackgroundInfo(mSigBG::MCF10A.background.spectra, "MCF10A.background")
+    MakeBackgroundInfo(mSigBG::MCF10A.background.spectra, title = "MCF10A.background")
   usethis::use_data(HepG2.background.info, overwrite = TRUE)
   usethis::use_data(MCF10A.background.info, overwrite = TRUE)
 }
