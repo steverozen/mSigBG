@@ -24,11 +24,11 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Introduction
 
-This is an example of background subtraction using the mSigAct package.
+This is an example of background subtraction using the mSigBG package.
 
-In this example we subtract the background signature of
-HepG2 and MCF10-A cells from the spectra of cells treated with
-various platinum-based chemotherapies.
+In this example we subtract the background signatures of
+HepG2 and MCF-10A cells from the spectra of cells treated with
+three platinum-based chemotherapies.
 
 `r ifelse(params$verbose, "## Libraries, graphics parameters, and helper functions", "")`
 
@@ -36,6 +36,7 @@ various platinum-based chemotherapies.
 ```{r, libraries, echo=params$verbose}
 library(mSigBG)
 library(ICAMS)
+library(BSgenome.Hsapiens.1000genomes.hs37d5)
 ```
 
 ```{r, util_func, echo=params$verbose}
@@ -172,17 +173,50 @@ add.arrows <- function(bp, tops, bottoms) {
 
 These are the spectra from cell lines exposed to cisplatin, carboplatin, or oxaliplatin
 
-```{r, read.spectra}
+### Generate spectra "catalogs" from HepG2 and MCF-10A cisplatin VCF files
 
+```{r, process.cisplatin.vcfs}
+if (!file.exists("example.spectra/cis.spectra.Rdata")) {
+  vcfs <- list.files("example.vcfs/HepG2_Cis/", full.names = TRUE)
+  hepg2.cis <- ICAMS::StrelkaSBSVCFFilesToCatalog(
+    files      = vcfs,
+    ref.genome = BSgenome.Hsapiens.1000genomes.hs37d5,
+    region     = "genome")$catSBS96
+  
+  vcfs <- list.files("example.vcfs/MCF10A_Cis/", full.names = TRUE)
+  mcf10a.cis <- ICAMS::StrelkaSBSVCFFilesToCatalog(
+    files      = vcfs,
+    ref.genome = BSgenome.Hsapiens.1000genomes.hs37d5,
+    region     = "genome")$catSBS96
+  
+  save(hepg2.cis, mcf10a.cis, file = "example.spectra/cis.spectra.Rdata")
+} else {
+  load("example.spectra/cis.spectra.Rdata")
+}
 
 ```
 
-## Input spectra
+### Read carboplatin and oxalipltin spectra catalogs
+
+```{r, read.catalogs}
+hepg2.car  <- ICAMS::ReadCatalog("example.spectra/HepG2_Car.csv")
+hepg2.oxa  <- ICAMS::ReadCatalog("example.spectra/HepG2_Oxa.csv")
+mcf10a.car <- ICAMS::ReadCatalog("example.spectra/MCF10A_Car.csv")
+
+```
 
 ### Input as count spectra
 
-```{r, plot.input.spectra}
-pcat(spectra)
+```{r, plot.input.cis}
+pcat(cbind(hepg2.cis, mcf10a.cis))
+```
+
+```{r, plot.input.car}
+pcat(cbind(hepg2.car, mcf10a.car))
+```
+
+```{r, plot.input.oxa}
+pcat(hepg2.oxa)
 ```
 
 ### Input as density spectra
