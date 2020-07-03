@@ -2,18 +2,27 @@
 % Please edit documentation in R/MakeBakgroundInfo.R
 \name{MakeBackgroundInfo}
 \alias{MakeBackgroundInfo}
-\title{Estimate a background signature.}
+\title{Estimate a background signature and its characteristics.}
 \usage{
 MakeBackgroundInfo(bg.spectra, title = "Background.sig")
 }
 \arguments{
-\item{title}{The name of the single column in the output.}
+\item{title}{The name of the single column of the signature in the
+\code{background.sig} element of the output.}
 
 \item{bg.specta}{The spectra from which to compute the background information.}
 }
 \value{
-An single column \code{\link[ICAMS]{ICAMS}} catalog.
+A list with the elements \describe{
+\item{\code{background.sig}}{The background signatures as an \code{\link[ICAMS]{ICAMS}} catalog.}
+\item{\code{sig.nbinom.size}}{The negative binomial \code{size} dispersion parameter for the
+background signature profile. See \code{\link[stats]{NegBinomial}}.}
+\item{\code{count.nbinom.mu}}{XXXXXX}
+\item{\code{count.nbinom.size}}{XXXXXX}
+}
+
+An single column .
 }
 \description{
-Estimate a background signature.
+Estimate a background signature and its characteristics.
 }

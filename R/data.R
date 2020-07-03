@@ -59,12 +59,10 @@
 #' 
 "MCF10A.background.spectra"
 
-#' Example nitrosamine data for background subtraction
+#' Example platinum chemotherapeutic data for background subtraction
 #'
 #' @format A list of spectra catalogs for nitrosamines.
 #'  The names of the catalogs are self-explanatory.
-#'  Each catalog has 2 spectra from each of four different
-#'  nitrosamines, "NDEA", "NDMA", "NPIP", "NPYR". The
-#'  samples names also should be self-explanatory.
+#'  XXXX
 #'
-"nitrosamine.examples"
+"platinum.examples"
