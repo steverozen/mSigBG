@@ -14,8 +14,6 @@ PlotSpectraAsSigsWithUncertainty <- function(spectra, title = "Mean.as.signature
   arrow.tops <- apply(xx$constituent.sigs, 1, max)
   arrow.bottoms <- apply(xx$constituent.sigs, 1, min)
   
-  oldopt <- getOption("digits")
-  on.exit(options(warn = oldopt))
   options(digits = 2)
   
   bp <- ICAMS::PlotCatalog(
@@ -35,6 +33,8 @@ AddArrows <- function(bp, tops, bottoms) {
   oldopt <- getOption("warn")
   on.exit(options(warn = oldopt))
   options(warn = -1) # Does not seem to turn off warnings
+  which0 <- which((tops - bottoms) == 0)
+  tops[which0] <- tops[which0] + 1e-5 
   suppressWarnings(
     # Necessary because generates warnings for 0-length arrows
     arrows(

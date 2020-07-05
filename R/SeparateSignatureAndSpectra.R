@@ -6,6 +6,13 @@
 #' @param sig.name A name for the inferred signature
 #' 
 #' @export
+#' 
+#' @return A list with the elements\describe{
+#' 
+#' \item{\code{inferred.target.spectra}}{The mutations counts inferred
+#'   to be from the target signature.}
+#' 
+#' }
 
 SeparateSignatureAndSpectra <- function(
   spectra,

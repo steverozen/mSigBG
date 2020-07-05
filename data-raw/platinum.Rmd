@@ -17,11 +17,6 @@ title: Background subtraction for various platinum-based chemotherapeutics
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-## Parameters
-
-### Inflation for mean number of background mutations = `r params[["bgfactor"]]`.
-
-### Dispersion parameter for number of background mutations = `r params[["count.nbinom.size"]]`.
 
 ## Introduction
 
@@ -35,9 +30,10 @@ three platinum-based chemotherapies.
 
 
 ```{r, libraries, echo=params$verbose}
-library(mSigBG)
-library(ICAMS)
-library(BSgenome.Hsapiens.1000genomes.hs37d5)
+library(mSigBG, quietly = TRUE)
+library(ICAMS, quietly = TRUE)
+library(BSgenome.Hsapiens.1000genomes.hs37d5, quietly = TRUE)
+library(philentropy, quietly = TRUE)
 ```
 
 ```{r, util_func, echo=params$verbose}
@@ -87,68 +83,6 @@ pcat <- function(catalog) {
 }
 ```
 
-```{r, define_stacked_pcat, echo=params$verbose}
-stacked.pcat <- function(bg.catalog, target.catalog, set.neg.zero = TRUE) {
-  
-  set.initial.par(bg.catalog)
-  xlabels <- FALSE
-
-  for (i in 1:ncol(bg.catalog)) {
-    if (FALSE && i == ncol(bg.catalog)) { # FALSE an experiment
-      xlabels <- TRUE
-      par(mar = c(last.bottom.mar, 4, 3, 2))
-    }
-    
-    target.cat.1 <- target.catalog[ , i, drop = FALSE]
-    bg.cat.1     <- bg.catalog[ , i, drop = FALSE]    
-    
-    zeros <- which(target.cat.1 < 0)
-    neg.catalog <- target.cat.1
-    
-    if (set.neg.zero) {
-      target.cat.1[zeros] <- 0
-    }
-    neg.catalog[-zeros] <- 0
-    neg.catalog <- neg.catalog * -1
-
-    to.plot <- cbind(bg.cat.1, target.cat.1)
-    
-    bp <- ICAMS::PlotCatalog(
-      to.plot,
-      upper   = (i == 1),
-      xlabels = xlabels)$plot.object
-    
-    bpz <- bp[zeros]
-    # message(paste(bpz, collapse = " "))
-
-    y0 <- bg.cat.1[zeros]
-    y1 <- bg.cat.1[zeros] - neg.catalog[zeros]
-    if (attr(target.catalog, "catalog.type") == "density") {
-      # message("adjusting for density")
-      y0 <- y0 * 1e6
-      y1 <- y1 * 1e6
-    }
-
-    # message(paste(y0, collapse = "y"))
-    # message(paste(y1, collapse = "z"))
-    minus.col <- "purple"
-    segments(x0 = bpz, 
-             y0 = y0, 
-             y1 = y1, 
-             col = minus.col,
-             lwd = 3,
-             lty = 1)
-
-    legend.txt <- c(params$whichnitro, "Background")
-    legend.col <- c("grey35", "red")
-    if (length(bpz) > 0) {
-      legend.txt <- c(legend.txt, paste("Background -", params$whichnitro))
-      legend.col <- c(legend.col, minus.col)
-    }
-    legend("topright", legend = legend.txt, fill = legend.col, cex = 0.8)
-  }
-}
-```
 
 ## Generate and read input spectra
 
@@ -163,12 +97,16 @@ if (!file.exists("example.spectra/cis.spectra.Rdata")) {
     files      = vcfs,
     ref.genome = BSgenome.Hsapiens.1000genomes.hs37d5,
     region     = "genome")$catSBS96
+  colnames(hepg2.cis) <- 
+    sub(".vcf", "", x = colnames(hepg2.cis), fixed = TRUE)
   
   vcfs <- list.files("example.vcfs/MCF10A_Cis/", full.names = TRUE)
   mcf10a.cis <- ICAMS::StrelkaSBSVCFFilesToCatalog(
     files      = vcfs,
     ref.genome = BSgenome.Hsapiens.1000genomes.hs37d5,
     region     = "genome")$catSBS96
+  colnames(mcf10a.cis) <- 
+    sub(".vcf", "", x = colnames(mcf10a.cis), fixed = TRUE)
   
   save(hepg2.cis, mcf10a.cis, file = "example.spectra/cis.spectra.Rdata")
   rm(vcfs)
@@ -190,11 +128,19 @@ hepg2.oxa  <- ICAMS::ReadCatalog("example.spectra/HepG2_Oxa.csv",
                                  ref.genome = BSgenome.Hsapiens.1000genomes.hs37d5,
                                  region = "genome",
                                  catalog.type = "counts")
+colnames(hepg2.oxa) <- sub("_SNVresult_intersect", "",
+                           x = colnames(hepg2.oxa), fixed = TRUE)
+colnames(hepg2.oxa) <- sub("pl_", "a_",
+                           x = colnames(hepg2.oxa), fixed = TRUE)
 
 mcf10a.car <- ICAMS::ReadCatalog("example.spectra/MCF10A_Car.csv", 
                                  ref.genome = BSgenome.Hsapiens.1000genomes.hs37d5,
                                  region = "genome",
                                  catalog.type = "counts")
+colnames(mcf10a.car) <- sub("_SNVresult_intersect", "",
+                           x = colnames(mcf10a.car), fixed = TRUE)
+colnames(mcf10a.car) <- sub("_Carb_", "_car_",
+                           x = colnames(mcf10a.car), fixed = TRUE)
 
 ```
 
@@ -282,11 +228,42 @@ if (!file.exists("all.separated.Rdata")) {
 
 ```
 
+```{r, spectra.heatmap}
+all.spectra <- do.call(cbind, c(hepg2.exposures, mcf10a.exposures))
+
+cosine.sim <- philentropy::distance(t(all.spectra), method = "cosine")
+rownames(cosine.sim) <- colnames(all.spectra)
+colnames(cosine.sim) <- colnames(all.spectra)
+gplots::heatmap.2(x = cosine.sim,
+                  dendrogram = "column",
+                  margins = c(9, 9),
+                  cex.axis = 0.5,
+                  symm = TRUE,
+                  trace = "none")
+
+
+```
+
+
+```{r, spectra.heatmap2}
+to.delete <- grep("Oxpl_cl4", colnames(all.spectra))
+cosine.sim <- philentropy::distance(
+  t(all.spectra[ , -to.delete]), method = "cosine")
+rownames(cosine.sim) <- colnames(all.spectra)[-to.delete]
+colnames(cosine.sim) <- colnames(all.spectra)[-to.delete]
+gplots::heatmap.2(x = cosine.sim,
+                  dendrogram = "column",
+                  margins = c(9, 9),
+                  cex.axis = 0.5,
+                  symm = TRUE,
+                  trace = "none")
+
+
+```
 
 ## Signature based on inferred target spectra plus uncertainty
 
-
-```{r, sig.and.uncertainty.counts}
+```{r, sig.and.uncertainty.counts, fig.height=3, fig.width=7}
 par(mfrow = c(1, 1))
 par(mar = c(7, 5, 7, 2))
 par(cex = 0.8)
@@ -299,7 +276,7 @@ for (test.name in names(all.separated)) {
 
 ```
 
-```{r, sig.and.uncertainty.denisty}
+```{r, sig.and.uncertainty.denisty, fig.height=3, fig.width=7}
 par(mfrow = c(1, 1))
 par(mar = c(7, 5, 7, 2))
 par(cex = 0.8)
@@ -318,10 +295,90 @@ for (test.name in names(all.separated)) {
 
 ### Stacked bar charts
 
-### Comparisions of inferred spectra and inferred signatures
+```{r, stacked.charts}
+par(mfrow = c(1, 1))
+par(mar = c(7, 5, 7, 2))
+par(cex = 0.8)
+par(cex.main = 1.4)
+for (test.name in names(all.separated)) {
+  
+  info <- all.separated[[test.name]]
+  bg.spectra <- info$inferred.bg.spect #############
+  ta.spectra <- info$inferred.target.spectra
+  
+  for (colnum in 1:ncol(bg.spectra)) {
+    Plot1StackedSpectrum(
+      bg.cat.1 = bg.spectra[ , colnum, drop = FALSE],
+      target.cat.1 = ta.spectra[ , colnum, drop = FALSE])
+  }
+}
+
+```
 
 
-```{r, cossim}
+### Similarities between inferred signatures
+
+
+```{r, gather.spectra.and.sigs}
+
+
+all.target.spectra <- matrix(nrow = 96, ncol = 0)
+for (test.name in names(all.separated)) {
+  tmp <- all.separated[[test.name]]$inferred.target.spectra
+  attr(tmp, "class") <- c("matrix", "array")
+  all.target.spectra <- cbind(all.target.spectra, tmp)
+}
+colnames(all.target.spectra) <-
+  sub(".vcf.inf.tg.spect", "",
+      x = colnames(all.target.spectra),
+      fixed = TRUE)
+
+colnames(all.target.spectra) <-
+  sub(".inf.tg.spect", "",
+      x = colnames(all.target.spectra),
+      fixed = TRUE)
+
+colnames(all.target.spectra) <-
+  sub("_SNVresult_intersect", "",
+      x = colnames(all.target.spectra),
+      fixed = TRUE)
+
+
+
+
+```
+
+```{r, cosine.sim, fig.height=8.5 fig.width=6.5}}
+
+cosine.sim <- philentropy::distance(t(all.target.spectra), method = "cosine")
+rownames(cosine.sim) <- colnames(all.target.spectra)
+colnames(cosine.sim) <- colnames(all.target.spectra)
+gplots::heatmap.2(x = cosine.sim,
+                  dendrogram = "column",
+                  margins = c(9, 9),
+                  cex.axis = 0.5,
+                  symm = TRUE,
+                  trace = "none")
+
+```
+
+```{r, skip.last.oxaliplatin}
+to.delete <- grep("Oxpl_cl4", colnames(all.target.spectra))
+cosine.sim <- 
+  philentropy::distance(t(all.target.spectra[ , -to.delete]), 
+                        method = "cosine")
+rownames(cosine.sim) <- colnames(all.target.spectra)[-to.delete]
+colnames(cosine.sim) <- colnames(all.target.spectra)[-to.delete]
+gplots::heatmap.2(x = cosine.sim,
+                  dendrogram = "column",
+                  margins = c(9, 9),
+                  cex.axis = 0.5,
+                  symm = TRUE,
+                  trace = "none")
+```
+
+
+```{r, cossim, eval=FALSE, echo=FALSE}
 cossim <- function(v1, v2) {
   if (!is.null(ncol(v1)))  {
     stopifnot(ncol(v1) == 1)
@@ -337,27 +394,11 @@ cossim <- function(v1, v2) {
 ```
 
 
-
-
-### Show combined background and target spectra
-
-```{r, plot.combined.count, eval=FALSE}
-# debug(stacked.pcat)
-stacked.pcat(inferred.bg.spectra, subtracted.target.spectra)
-```
-
-```{r, plot.combined.density, eval=FALSE}
-stacked.pcat(
-  ICAMS::TransformCatalog(inferred.bg.spectra,
-                          target.catalog.type = "density"),
-  ICAMS::TransformCatalog(subtracted.target.spectra,
-                          target.catalog.type = "density"))
-
-```
-
 `r ifelse(params$showrecon, "### Reconstruct spectra", "")`
 
 ```{r, get.reconstructed.spectra, eval=FALSE, echo=params$showrecon}
+
+### Comparisions of inferred spectra and inferred signatures"
 reconstructed.target.spectra <- 
   round(inferred.sig %*% matrix(ret$exposures.to.target.sig, nrow = 1))
 reconstructed.target.spectra <- 
@@ -415,11 +456,13 @@ for (i in 0:(ncol(spectra) - 1)) {
 }
 ```
 
+
+
+```{r, sanity_check_1_is_target_needed, eval = FALSE}
 ## Sanity check: are both the background and the inferred signature needed?
 
 ### Is the inferred signature needed?
 
-```{r, sanity_check_1_is_target_needed, eval = FALSE}
 library(mSigAct)
 m.opts <- mSigAct::DefaultManyOpts()
 two.sigs2 <- two.sigs
@@ -433,9 +476,11 @@ mSigAct::SignaturePresenceTest(
 
 ```
 
-### Is the background signature needed?
+
 
 ```{r, sanity_check_2_is_backgrouind_needed, eval = FALSE}
+### Is the background signature needed?
+
 mSigAct::SignaturePresenceTest(
   spectra          = spectra,
   sigs             = two.sigs2,
