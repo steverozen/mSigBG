@@ -13,15 +13,19 @@ Plot1StackedSpectrum(
 )
 }
 \arguments{
-\item{bg.cat.1}{XXXX}
+\item{bg.cat.1}{Partial spectra due to a background signature.}
 
-\item{target.title}{XXXXX}
+\item{target.cat.1}{Partial spectra due to a target signature.}
 
-\item{set.neg.zero}{XXXX}
+\item{target.title}{A title for the legend for the partial
+spectra due to a target signature.}
 
-\item{target.cat}{XXXX}
+\item{set.neg.zero}{Sometimes after subtraction a part of the
+spectra due to a target signatures is negative. If this
+argument is true, set these to 0.}
 
-\item{background.tite}{XXXX}
+\item{background.tite}{A title for the legend for the partial
+spectra due to a background signature.}
 }
 \description{
 Plot a spectrum as a stacked bar chart

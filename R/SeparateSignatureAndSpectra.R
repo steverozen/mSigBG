@@ -50,7 +50,7 @@ SeparateSignatureAndSpectra <- function(
                                            infer.rownames = TRUE)
   colnames(inferred.bg.spectra) <- paste0(colnames(spectra), "-inf.bg.spect")
   
-  ret$inferred.bg.specta <- inferred.bg.spectra
+  ret$inferred.bg.spectra <- inferred.bg.spectra
   
   ret$inferred.target.spectra <- spectra - inferred.bg.spectra
   
