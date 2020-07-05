@@ -1,49 +1,53 @@
 #' Specifications of background signatures
 #'
 #'
-#' @format A list with the elements \describe{
-#' \item{\code{background.sig}}{The background signature profile.}
+#' @format A list with one element for each cell line. 
 #' 
-#' \item{\code{sig.nbinom.size}}{The dispersion parameter for the negative
-#'        binomial distribution for sampling error around
-#'        the components of \code{background.sig}. Smaller is more dispersed.
-#'        See \code{\link[stats]{NegBinomial}}.}
-#'
-#' \item{\code{count.nbinom.mu}}{The \code{mu} argument
-#'  for
-#' \code{\link[stats]{NegBinomial}} for the distribution
-#' of total counts due to \code{background.sig} across
-#' replicate exposed clones.}
+#' Each element of the list
+#' is in turn a list with the elements \describe{
 #' 
-#' \item{\code{count.nbinom.size}}{The dispersion parameter
-#'  for the negative binomial distribution of sampling error
-#'  for total counts due to \code{background.sig} across
-#'  replicate exposed clones. Smaller is more dispersed.
-#'  See \code{\link[stats]{NegBinomial}}}
-#' 
+#'    \item{\code{background.sig}}{The background signatures as a
+#'    single-column \code{\link[ICAMS]{ICAMS}} catalog.}
+#'    
+#'    \item{\code{sig.nbinom.size}}{The negative binomial \code{size} dispersion parameter for the 
+#'    background signature profile. See \code{\link[stats]{NegBinomial}}.}
+#'    
+#'    \item{\code{count.nbinom.mu}}{The mean of the numbers of mutations in \code{input.spectra}.}
+#'    
+#'    \item{\code{count.nbinom.size}}{The negative binomial \code{size} dispersion parameter for the 
+#'    numbers of mutations caused by the background signature (i.e. \code{count.nbinom.mu}).
+#'    See \code{\link[stats]{NegBinomial}}.
+#'    
+#'    \item{\code{input.spectra}}{The \code{bg.spectra} used to estimate the background.}
 #' }
 #' 
-#' @source \code{HepG2.background.info} was estimated from \code{\link{HepG2.background.spectra}}.
+#' @source \code{background.info} 
+#' was estimated from \code{\link{HepG2.background.spectra}} and
+#' \code{\link{MCF10A.background.spectra}}.
 #'
 #' @name background.info
 #' 
 #' @examples 
-#' HepG2.background.info$count.nbinom.mu
-#' HepG2.background.info$count.nbinom.size
-#' HepG2.background.info$sig.nbinom.size
-#' HepG2.background.info$background.sig[1:3, ]
+#' background.info[["HepG2"]]$count.nbinom.mu
+#' HepG2.background.info[["HepG2"]]$count.nbinom.size
+#' HepG2.background.info[["HepG2"]]$sig.nbinom.size
+#' HepG2.background.info[["HepG2"]]$background.sig[1:3, ]
 #' 
 #' 
 #' 
-"HepG2.background.info"
+"background.info"
 
-#' Background information for MCF-10A cells.
+
+#' Example spectra of cell lines explsed to cisplatin
 #' 
-#' @name background.info
+#' @format A list of \code{\link[ICAMS]{ICAMS}} \code{counts} spectra catalog.
+#'
+#' @name example.spectra
 #' 
-#' @source \code{MCF10A.background.info} was estimated from \code{\link{MCF10A.background.spectra}}
-#' 
-"MCF10A.background.info"
+#' @examples 
+#' rowSums(example.spectra[["MCF10A.cisplatin"]])[1:3]
+"example.spectra"
+
 
 #' Background spectra for HepG2 and MCF-10A
 #' 
@@ -58,11 +62,3 @@
 #' @name background.spectra
 #' 
 "MCF10A.background.spectra"
-
-#' Example platinum chemotherapeutic data for background subtraction
-#'
-#' @format A list of spectra catalogs for nitrosamines.
-#'  The names of the catalogs are self-explanatory.
-#'  XXXX
-#'
-"platinum.examples"

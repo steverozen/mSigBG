@@ -22,13 +22,30 @@ usethis::use_data(MCF10A.background.spectra, overwrite = TRUE)
 
 # Run this code to create the package variables HepG2.background
 # and MCF10A.background.
-HepG2.background.info <- 
+background.info <- list()
+background.info[["HepG2"]] <- 
   MakeBackgroundInfo(mSigBG::HepG2.background.spectra, title = "HepG2.background")
-MCF10A.background.info <- 
+background.info[["MCF10A"]] <- 
   MakeBackgroundInfo(mSigBG::MCF10A.background.spectra, title = "MCF10A.background")
-usethis::use_data(HepG2.background.info, overwrite = TRUE)
-usethis::use_data(MCF10A.background.info, overwrite = TRUE)
+usethis::use_data(background.info, overwrite = TRUE)
 
+vcfs <- list.files("data-raw/example.vcfs/HepG2_Cis/", full.names = TRUE)
+hepg2.cis <- ICAMS::StrelkaSBSVCFFilesToCatalog(
+  files      = vcfs,
+  ref.genome = BSgenome.Hsapiens.1000genomes.hs37d5::BSgenome.Hsapiens.1000genomes.hs37d5,
+  region     = "genome")$catSBS96
+attr(hepg2.cis, "ref.genome") <- NULL
+
+vcfs <- list.files("example.vcfs/MCF10A_Cis/", full.names = TRUE)
+mcf10a.cis <- ICAMS::StrelkaSBSVCFFilesToCatalog(
+  files      = vcfs,
+  ref.genome = BSgenome.Hsapiens.1000genomes.hs37d5::BSgenome.Hsapiens.1000genomes.hs37d5,
+  region     = "genome")$catSBS96
+attr(mcf10a.cis, "ref.genome") <- NULL
+example.spectra <- list()
+example.spectra[["HepG2.cisplatin"]] <- hepg2.cis
+example.spectra[["MCF10A.cisplatin"]] <- mcf10a.cis
+usethis::use_data(example.spectra, overwrite = TRUE)
 
 
 OLD.MakeMCF10HepG2BackgroundVars <- function() {

@@ -23,6 +23,24 @@ as a matrix or \code{\link[ICAMS]{ICAMS}} catalog.}
 \item{start.b.fraction}{The estimated fraction of the mutations in
 \code{spectra} due to the background signature.}
 }
+\value{
+A list with the elements \describe{
+
+\item{\code{inferred.target.sig}}{The estimated target signaute as a numerical
+vector.}
+
+\item{exposures.to.target.sig}{The estimated total number of mutations due
+to the target signature in each input specturm.}
+
+\item{\code{exposures.to.bg.sig}}{The estimated total number of mutations due
+to the backgound in each input spectrum.}
+
+\item{\code{message}}{The \code{message} element of \code{all.opt.ret}.}
+
+\item{\code{all.opt.ret}}{The entire return value from the optimaztion.
+See \code{\link[nloptr]{nloptr}}}
+}
+}
 \description{
 We index mutation channels (e.g. \code{ACA > AAA, ACC > AAC, ...}) by \eqn{j}, \eqn{j \in 1...96}.
 

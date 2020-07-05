@@ -3,54 +3,44 @@
 \docType{data}
 \name{background.info}
 \alias{background.info}
-\alias{HepG2.background.info}
-\alias{MCF10A.background.info}
 \title{Specifications of background signatures}
 \format{
-A list with the elements \describe{
-\item{\code{background.sig}}{The background signature profile.}
+A list with one element for each cell line.
 
-\item{\code{sig.nbinom.size}}{The dispersion parameter for the negative
-binomial distribution for sampling error around
-the components of \code{background.sig}. Smaller is more dispersed.
-See \code{\link[stats]{NegBinomial}}.}
+Each element of the list
+is in turn a list with the elements \describe{
 
-\item{\code{count.nbinom.mu}}{The \code{mu} argument
-for
-\code{\link[stats]{NegBinomial}} for the distribution
-of total counts due to \code{background.sig} across
-replicate exposed clones.}
+\item{\code{background.sig}}{The background signatures as a
+single-column \code{\link[ICAMS]{ICAMS}} catalog.}
 
-\item{\code{count.nbinom.size}}{The dispersion parameter
-for the negative binomial distribution of sampling error
-for total counts due to \code{background.sig} across
-replicate exposed clones. Smaller is more dispersed.
-See \code{\link[stats]{NegBinomial}}}
+\item{\code{sig.nbinom.size}}{The negative binomial \code{size} dispersion parameter for the
+background signature profile. See \code{\link[stats]{NegBinomial}}.}
 
+\item{\code{count.nbinom.mu}}{The mean of the numbers of mutations in \code{input.spectra}.}
+
+\item{\code{count.nbinom.size}}{The negative binomial \code{size} dispersion parameter for the
+numbers of mutations caused by the background signature (i.e. \code{count.nbinom.mu}).
+See \code{\link[stats]{NegBinomial}}.
+
+\item{\code{input.spectra}}{The \code{bg.spectra} used to estimate the background.}
 }
-
-An object of class \code{list} of length 4.
 }
 \source{
-\code{HepG2.background.info} was estimated from \code{\link{HepG2.background.spectra}}.
-
-\code{MCF10A.background.info} was estimated from \code{\link{MCF10A.background.spectra}}
+\code{background.info}
+was estimated from \code{\link{HepG2.background.spectra}} and
+\code{\link{MCF10A.background.spectra}}.
 }
 \usage{
-HepG2.background.info
-
-MCF10A.background.info
+background.info
 }
 \description{
 Specifications of background signatures
-
-Background information for MCF-10A cells.
 }
 \examples{
-HepG2.background.info$count.nbinom.mu
-HepG2.background.info$count.nbinom.size
-HepG2.background.info$sig.nbinom.size
-HepG2.background.info$background.sig[1:3, ]
+background.info[["HepG2"]]$count.nbinom.mu
+HepG2.background.info[["HepG2"]]$count.nbinom.size
+HepG2.background.info[["HepG2"]]$sig.nbinom.size
+HepG2.background.info[["HepG2"]]$background.sig[1:3, ]
 
 
 

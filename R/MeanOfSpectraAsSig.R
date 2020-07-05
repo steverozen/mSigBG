@@ -1,9 +1,10 @@
 #' Return the mean of multiple spectra as a signature.
 #' 
-#' @param spectra Convert each spectrum to a signature and then compute the
-#'   mean of all signatures.
+#' @param spectra An \code{\link[ICAMS]{ICAMS}} spectrum catalog.
+#'   Convert each spectrum to a signature and then compute the
+#'   mean.
 #'   
-#' @param title The name of the column in the output signature.
+#' @param title The name of the output signature.
 #'   
 #' @export
 #' 
@@ -28,7 +29,10 @@ MeanOfSpectraAsSig <- function(spectra, title = "sig.from.spectra.mean") {
   target.abundance <- attr(spectra, "abundance", exact = TRUE)
   target.region    <- attr(spectra, "region",    exact = TRUE)
 
-  stopifnot(!is.null(target.abundance))
+  # stopifnot(!is.null(target.abundance))
+  if (is.null(target.abundance)) {
+    warning("Using NULL target.abundance in MeanOfSpectraAsSig")
+  }
 
   sigs <- ICAMS::TransformCatalog(spectra, 
                                   target.catalog.type = tctype,
@@ -47,5 +51,5 @@ MeanOfSpectraAsSig <- function(spectra, title = "sig.from.spectra.mean") {
   
   colnames(mean.sig) <- title
   
-  return(mean.sig)
+  return(list(mean.sig = mean.sig, constituent.sigs = sigs))
 }

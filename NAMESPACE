@@ -3,5 +3,7 @@
 export(LLHSpectrumNegBinom)
 export(MakeBackgroundInfo)
 export(MeanOfSpectraAsSig)
+export(PlotSpectraAsSigsWithUncertainty)
+export(SeparateSignatureAndSpectra)
 export(SeparateSignatureFromBackground)
 importFrom(stats,dnbinom)

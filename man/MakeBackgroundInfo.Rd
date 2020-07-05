@@ -14,14 +14,16 @@ MakeBackgroundInfo(bg.spectra, title = "Background.sig")
 }
 \value{
 A list with the elements \describe{
-\item{\code{background.sig}}{The background signatures as an \code{\link[ICAMS]{ICAMS}} catalog.}
+\item{\code{background.sig}}{The background signatures as a
+single-column \code{\link[ICAMS]{ICAMS}} catalog.}
 \item{\code{sig.nbinom.size}}{The negative binomial \code{size} dispersion parameter for the
 background signature profile. See \code{\link[stats]{NegBinomial}}.}
-\item{\code{count.nbinom.mu}}{XXXXXX}
-\item{\code{count.nbinom.size}}{XXXXXX}
+\item{\code{count.nbinom.mu}}{The mean of the numbers of mutations in \code{bg.spectra}.}
+\item{\code{count.nbinom.size}}{The negative binomial \code{size} dispersion parameter for the
+numbers of mutations caused by the background signature (i.e. \code{count.nbinom.mu}).
+See \code{\link[stats]{NegBinomial}}.}
+\item{\code{input.spectra}}{The \code{bg.spectra} used to estimate the background.}
 }
-
-An single column .
 }
 \description{
 Estimate a background signature and its characteristics.

@@ -136,6 +136,23 @@ test_g_ineq <- function(est.target.sig.and.b, # Parameters to optimize
 #' @details
 #' See \code{\link{ObjFn1}}.
 #' 
+#' @return A list with the elements \describe{
+#'
+#'   \item{\code{inferred.target.sig}}{The estimated target signaute as a numerical
+#'    vector.}
+#'    
+#'   \item{exposures.to.target.sig}{The estimated total number of mutations due
+#'     to the target signature in each input specturm.}
+#'     
+#'   \item{\code{exposures.to.bg.sig}}{The estimated total number of mutations due
+#'    to the backgound in each input spectrum.}
+#'    
+#'   \item{\code{message}}{The \code{message} element of \code{all.opt.ret}.}
+#'   
+#'   \item{\code{all.opt.ret}}{The entire return value from the optimaztion.
+#'   See \code{\link[nloptr]{nloptr}}}
+#' }
+#' 
 #' @export
 
 SeparateSignatureFromBackground <-
@@ -148,7 +165,7 @@ SeparateSignatureFromBackground <-
     
     spectra.catalog.type <- attr(spectra, "catalog.type", exact = TRUE)
     stopifnot(!is.null(spectra.catalog.type))
-    sig0 <- MeanOfSpectraAsSig(spectra)
+    sig0 <- MeanOfSpectraAsSig(spectra)$mean.sig
     
     b.x0 <- start.b.fraction * colSums(spectra)
     est.target.sig.and.b.x0 <- c(sig0, b.x0)
@@ -182,7 +199,7 @@ SeparateSignatureFromBackground <-
   
     sig.to.return <- soln[1:nrow(spectra)]
     sum.sig <- sum(sig.to.return)
-    is.one <- all.equal(1, sum.sig, tolerance = 1e-6)
+    is.one <- all.equal(1, sum.sig, tolerance = 1e-5)
     if (is.character(is.one)) {
       message("Sum of elements in inferred signature is not 1; ", is.one)
     }
@@ -209,7 +226,7 @@ SeparateSignatureFromBackground <-
 #' @param bg.sig.info Information on the background signature. See for example
 #' \code{\link{HepG2.background.info}}.
 #' 
-#' We the caller will seek to minimize the value of this function.
+#' The caller will seek to minimize the value of this function.
 #' 
 #' @keywords internal
 #' 
