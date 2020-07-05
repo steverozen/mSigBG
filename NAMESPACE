@@ -3,6 +3,7 @@
 export(LLHSpectrumNegBinom)
 export(MakeBackgroundInfo)
 export(MeanOfSpectraAsSig)
+export(Plot1StackedSpectrum)
 export(PlotSpectraAsSigsWithUncertainty)
 export(SeparateSignatureAndSpectra)
 export(SeparateSignatureFromBackground)

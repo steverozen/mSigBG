@@ -1,16 +1,21 @@
 #' Plot a spectrum as a stacked bar chart
 #' 
-#' @param bg.cat.1 XXXX
+#' @param bg.cat.1 Partial spectra due to a background signature.
 #' 
-#' @param target.cat XXXX
+#' @param target.cat.1 Partial spectra due to a target signature.
 #' 
-#' @param background.tite XXXX
+#' @param background.tite A title for the legend for the partial
+#'   spectra due to a background signature.
 #' 
-#' @param target.title XXXXX
+#' @param target.title A title for the legend for the partial
+#'   spectra due to a target signature.
 #' 
-#' @param set.neg.zero XXXX
+#' @param set.neg.zero Sometimes after subtraction a part of the
+#'   spectra due to a target signatures is negative. If this
+#'   argument is true, set these to 0.
 #' 
 #' @export
+#' 
 
 Plot1StackedSpectrum <- function(bg.cat.1, 
                                    target.cat.1,

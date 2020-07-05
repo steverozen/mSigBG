@@ -231,6 +231,10 @@ if (!file.exists("all.separated.Rdata")) {
 ```{r, spectra.heatmap}
 all.spectra <- do.call(cbind, c(hepg2.exposures, mcf10a.exposures))
 
+temp.names <- unlist(lapply(c(hepg2.exposures, mcf10a.exposures), colnames))
+
+colnames(all.spectra) <- temp.names
+
 cosine.sim <- philentropy::distance(t(all.spectra), method = "cosine")
 rownames(cosine.sim) <- colnames(all.spectra)
 colnames(cosine.sim) <- colnames(all.spectra)
@@ -246,7 +250,7 @@ gplots::heatmap.2(x = cosine.sim,
 
 
 ```{r, spectra.heatmap2}
-to.delete <- grep("Oxpl_cl4", colnames(all.spectra))
+to.delete <- grep("Oxa_cl4", colnames(all.spectra))
 cosine.sim <- philentropy::distance(
   t(all.spectra[ , -to.delete]), method = "cosine")
 rownames(cosine.sim) <- colnames(all.spectra)[-to.delete]
@@ -348,7 +352,7 @@ colnames(all.target.spectra) <-
 
 ```
 
-```{r, cosine.sim, fig.height=8.5 fig.width=6.5}}
+```{r, cosine.sim, fig.height=8.5, fig.width=6.5}
 
 cosine.sim <- philentropy::distance(t(all.target.spectra), method = "cosine")
 rownames(cosine.sim) <- colnames(all.target.spectra)

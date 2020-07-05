@@ -26,6 +26,14 @@ as a matrix or \code{\link[ICAMS]{ICAMS}} catalog.}
 
 \item{sig.name}{A name for the inferred signature}
 }
+\value{
+A list with the elements\describe{
+
+\item{\code{inferred.target.spectra}}{The mutations counts inferred
+to be from the target signature.}
+
+}
+}
 \description{
 Calculate the inferred target signature and inferred background and target components of input spectra
 }

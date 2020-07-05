@@ -9,6 +9,9 @@ A list with one element for each cell line.
 Each element of the list
 is in turn a list with the elements \describe{
 
+\item{\code{background.sig}}{The background signatures as a
+single-column \code{\link[ICAMS]{ICAMS}} catalog.}
+
 \item{\code{sig.nbinom.size}}{The negative binomial \code{size} dispersion parameter for the
 background signature profile. See \code{\link[stats]{NegBinomial}}.}
 
