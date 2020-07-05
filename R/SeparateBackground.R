@@ -125,8 +125,8 @@ test_g_ineq <- function(est.target.sig.and.b, # Parameters to optimize
 #' @param spectra The spectra from which to subtract the background,
 #'   as a matrix or \code{\link[ICAMS]{ICAMS}} catalog.
 #'   
-#' @param bg.sig.info Information about the background signature. See for example
-#'   \code{\link{HepG2.background.info}}.
+#' @param bg.sig.info Information about the background signature. See
+#'   \code{\link{background.info}}.
 #'   
 #' @param m.opts Options to pass to \code{\link[nloptr]{nloptr}}.
 #' 
@@ -224,7 +224,7 @@ SeparateSignatureFromBackground <-
 #' of an experimental treatment.
 #' 
 #' @param bg.sig.info Information on the background signature. See for example
-#' \code{\link{HepG2.background.info}}.
+#' \code{\link{background.info}}, e.g. \code{background.info[["HepG2"]]}.
 #' 
 #' The caller will seek to minimize the value of this function.
 #' 
@@ -233,7 +233,7 @@ SeparateSignatureFromBackground <-
 ObjFn1 <- function(
   est.target.sig.and.b, # Parameters to optimize
   obs.spectra,     
-  bg.sig.info   # E.g. HepG2.background.info
+  bg.sig.info   
 ) {
   bg.sig.profile <- bg.sig.info[["background.sig"]]
   

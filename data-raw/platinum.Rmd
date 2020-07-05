@@ -9,6 +9,7 @@ params:
   onefhigh: 2.5
   verbose: TRUE
   count.nbinom.size: 20
+  def.fig.wid: 4
   
 title: Background subtraction for various platinum-based chemotherapeutics  
 ---
@@ -147,26 +148,6 @@ stacked.pcat <- function(bg.catalog, target.catalog, set.neg.zero = TRUE) {
     legend("topright", legend = legend.txt, fill = legend.col, cex = 0.8)
   }
 }
-
-add.arrows <- function(bp, tops, bottoms) {
-  oldopt <- getOption("warn")
-  on.exit(options(warn = oldopt))
-  options(warn = -1) # Does not seem to turn off warnings
-  suppressWarnings(
-    # Necessary because generates warnings for 0-length arrows
-    arrows(
-      x0     = bp,
-      y0     = tops,    # location of up arrow tips
-      y1     = bottoms, # location of down arrow tips
-      angle  = 90,      # use "T" arrow heads
-      code   = 3,       # use arrow heads at both ends
-      length = 0.025    # width of arrow heads
-    ))
-  # Try this to get rid of the warnings:
-  assign("last.warning", NULL, envir = baseenv())
-  
-}
-
 ```
 
 ## Generate and read input spectra
@@ -190,6 +171,7 @@ if (!file.exists("example.spectra/cis.spectra.Rdata")) {
     region     = "genome")$catSBS96
   
   save(hepg2.cis, mcf10a.cis, file = "example.spectra/cis.spectra.Rdata")
+  rm(vcfs)
 } else {
   load("example.spectra/cis.spectra.Rdata")
 }
@@ -199,128 +181,144 @@ if (!file.exists("example.spectra/cis.spectra.Rdata")) {
 ### Read carboplatin and oxalipltin spectra catalogs
 
 ```{r, read.catalogs}
-hepg2.car  <- ICAMS::ReadCatalog("example.spectra/HepG2_Car.csv")
-hepg2.oxa  <- ICAMS::ReadCatalog("example.spectra/HepG2_Oxa.csv")
-mcf10a.car <- ICAMS::ReadCatalog("example.spectra/MCF10A_Car.csv")
+hepg2.car  <- ICAMS::ReadCatalog("example.spectra/HepG2_Car.csv", 
+                                 ref.genome = BSgenome.Hsapiens.1000genomes.hs37d5,
+                                 region = "genome",
+                                 catalog.type = "counts")
+
+hepg2.oxa  <- ICAMS::ReadCatalog("example.spectra/HepG2_Oxa.csv", 
+                                 ref.genome = BSgenome.Hsapiens.1000genomes.hs37d5,
+                                 region = "genome",
+                                 catalog.type = "counts")
+
+mcf10a.car <- ICAMS::ReadCatalog("example.spectra/MCF10A_Car.csv", 
+                                 ref.genome = BSgenome.Hsapiens.1000genomes.hs37d5,
+                                 region = "genome",
+                                 catalog.type = "counts")
 
 ```
 
 ### Input as count spectra
 
-```{r, plot.input.cis}
-pcat(cbind(hepg2.cis, mcf10a.cis))
+```{r, plot.input.hepg2.cis, fig.height=7, fig.width=7}
+pcat(hepg2.cis)
 ```
 
-```{r, plot.input.car}
-pcat(cbind(hepg2.car, mcf10a.car))
+```{r, plot.input.mcf10a.cis, fig.height=10, fig.width=7}
+pcat(mcf10a.cis)
 ```
 
-```{r, plot.input.oxa}
+```{r, plot.input.hepg2.car, fig.height=5, fig.width=7}
+pcat(hepg2.car)
+```
+
+```{r, plot.input.mcf10a.car, fig.height=7, fig.width=7}
+pcat(mcf10a.car)
+```
+
+```{r, plot.input.oxa, fig.height=5, fig.width=7}
 pcat(hepg2.oxa)
 ```
 
-### Input as density spectra
 
-```{r input_spectra_as_density}
+`r ifelse(params$verbose, "### Input as density spectra", "")`
+
+```{r input_spectra_as_density, eval=FALSE, echo=params$verbose}
 pcat(ICAMS::TransformCatalog(spectra, 
                              target.catalog.type = "density"))
 ```
 
-## Decompose the background and the signature of `r params$whichnitro`
+## Decompose the background and target signatures
 
-```{r subtract}
-bg.info <- HepG2.background.info
-
-bg.info$count.nbinom.mu <- params$bgfactor * bg.info$count.nbinom.mu
-bg.info$count.nbinom.size <- params[["count.nbinom.size"]]
-
-if (TRUE) { 
-  set.seed(101010, kind = "L'Ecuyer-CMRG")
-  ret <- 
-    SeparateSignatureFromBackground(
-      spectra     = spectra,
-      bg.sig.info = bg.info,
-      m.opts      = NULL,
-      start.b.fraction = 0.5)
+```{r, separate.hepg2}
+one.separation <- function(sig.name, sig.list, bg.sig.info, my.seed = 101010) {
   
-  ret$all.opt.ret
-  # ICAMS::PlotCatalog(bg.info$background.sig)
-} else {
-  load(devtools::package_file("data-raw/saved.bg.Rdata"))
+  set.seed(my.seed, kind = "L'Ecuyer-CMRG")
+  
+  spectra <- sig.list[[sig.name]]
+  
+  if (is.null(attr(spectra, "abundance"))) {
+    stop("NULL abundance for ", sig.name)
+  }
+  
+  ret <- SeparateSignatureAndSpectra(
+    spectra          = spectra,
+    bg.sig.info      = bg.sig.info,
+    m.opts           = NULL,
+    start.b.fraction = 0.5,
+    sig.name         = sig.name
+  )
+
+  return(ret)
+}
+
+hepg2.exposures <- list(hepg2.cis, hepg2.car, hepg2.oxa)
+names(hepg2.exposures) <- c("HepG2.cis.sig", "HepG2.car.sig", "HepG2.oxa.sig")
+if (!file.exists("all.separated.Rdata")) {
+  hepg2.separated <- lapply(X           = names(hepg2.exposures),
+                            FUN         = one.separation,
+                            sig.list    = hepg2.exposures,
+                            bg.sig.info = background.info[["HepG2"]])
+  names(hepg2.separated) <- names(hepg2.exposures)
 }
 ```
 
-```{r inferred_sig_as_catalog}
-sum(ret$inferred.target.sig)
+```{r, separate.mcf10a}
 
-inferred.sig <- 
-  ICAMS::as.catalog(
-    object         = ret$inferred.target.sig, 
-    catalog.type   = "counts.signature",
-    region         = "genome",
-    abundance      = attr(mSigBG::nitrosamine.examples$catSBS96,
-                          "abundance"),
-    infer.rownames = TRUE)
-colnames(inferred.sig) <- paste0("Inferred-", params$whichnitro, "-sig")
-```
+mcf10a.exposures <- list(mcf10a.cis, mcf10a.car)
+names(mcf10a.exposures) <- c("MCF10A.cis.sig", "MCF10.car.sig")
+if (!file.exists("all.separated.Rdata")) {
+  mcf10a.separated <- lapply(X           = names(mcf10a.exposures),
+                             FUN         = one.separation,
+                             sig.list    = mcf10a.exposures,
+                             bg.sig.info = background.info[["MCF10A"]])
+  names(mcf10a.separated) <- names(mcf10a.exposures)
+  
+  all.separated <- c(hepg2.separated, mcf10a.separated)
+  save(all.separated, file = "all.separated.Rdata")
+} else {
+  load("all.separated.Rdata")
+}
 
-### Inferred `r params$whichnitro` count signature and HepG2 background signature 
-
-```{r, prep.plot.inferred.spectra.signature}
-# debug(ICAMS::PlotCatalog)
-# ICAMS::PlotCatalog(bg.info$background.sig)
-stopifnot(is.numeric(attr(inferred.sig, "abundance")))
-stopifnot(is.numeric(attr(bg.info$background.sig, "abundance")))
-two.sigs <- cbind(inferred.sig, bg.info$background.sig)
-# ICAMS::PlotCatalog(bg.info$background.sig)
-stopifnot(is.numeric(attr(two.sigs, "abundance")))
-```
-
-```{r, plot.inferred.spectra.signature}
-pcat(two.sigs)
-attr(two.sigs, "abundance")
-```
-
-#### Inferred `r params$whichnitro` density signature and given HepG2 background signature 
-
-```{r, plot.inferred.density}
-pcat(ICAMS::TransformCatalog(two.sigs, 
-                             target.catalog.type = "density.signature"))
 ```
 
 
-## Calculate and plot inferred components of the spectra
+## Signature based on inferred target spectra plus uncertainty
 
 
-### Inferred background spectra
+```{r, sig.and.uncertainty.counts}
+par(mfrow = c(1, 1))
+par(mar = c(7, 5, 7, 2))
+par(cex = 0.8)
+par(cex.main = 1.4) 
+for (test.name in names(all.separated)) {
+  PlotSpectraAsSigsWithUncertainty(
+    all.separated[[test.name]]$inferred.target.spectra,
+    title = test.name)
+}
 
-```{r, plot.inferred.background.spectra}
-total.counts <- apply(spectra, MARGIN = 2, sum)
-total.counts
-
-bg.counts <- total.counts - ret$exposures.to.target.sig
-bg.counts
-
-inferred.bg.spectra <- 
-  round(bg.info$background.sig %*% matrix(bg.counts, nrow = 1))
-inferred.bg.spectra <- ICAMS::as.catalog(inferred.bg.spectra,
-                                         catalog.type   = "counts",
-                                         region         = "genome",
-                                         abundance      = attr(spectra, "abundance"),
-                                         infer.rownames = TRUE)
-colnames(inferred.bg.spectra) <- paste0(colnames(spectra), "-inf-bg-spect")
-```
-```{r, pl_inferred_bg_spec, eval=params$showbgspec, echo=params$showbgspec}
-pcat(inferred.bg.spectra)
-```
-### Spectra due to `r params$whichnitro`, as inferred by subtraction
-
-```{r, plot.inferred.target.spectra}
-subtracted.target.spectra <- spectra - inferred.bg.spectra
-pcat(subtracted.target.spectra)
 ```
 
-### Signature based on subtracted spectra compared to directly inferred signature
+```{r, sig.and.uncertainty.denisty}
+par(mfrow = c(1, 1))
+par(mar = c(7, 5, 7, 2))
+par(cex = 0.8)
+par(cex.main = 1.4) 
+for (test.name in names(all.separated)) {
+  d.spect <- ICAMS::TransformCatalog(
+    all.separated[[test.name]]$inferred.target.spectra,
+    target.catalog.type = "density")
+  PlotSpectraAsSigsWithUncertainty(
+    d.spect,
+    title = test.name)
+}
+
+```
+
+
+### Stacked bar charts
+
+### Comparisions of inferred spectra and inferred signatures
 
 
 ```{r, cossim}
@@ -339,57 +337,16 @@ cossim <- function(v1, v2) {
 ```
 
 
-```{r, sub_inferred_vs_direct_inferred}
-
-sigx <- MeanOfSpectraAsSig(subtracted.target.spectra)
-cossim(sigx, inferred.sig)
-
-```
-
-
-### Uncertainty in inferred signature based on variability of spectra minus inferred background
-
-
-```{r, var_infer_sig, fig.height=2.5, warning=FALSE}
-sub.target.sig.ests <- 
-  ICAMS::TransformCatalog(subtracted.target.spectra, 
-                          target.catalog.type = "counts.signature",
-                          target.abundance = attr(subtracted.target.spectra,
-                                                  "abundance",
-                                                  exact = TRUE))
-
-arrow.tops <- apply(sub.target.sig.ests, 1, max)
-arrow.bottoms <- apply(sub.target.sig.ests, 1, min)
-min.sub <- min(arrow.bottoms)
-bp <- pcat1(inferred.sig, ylim = c(min.sub, max(arrow.tops) + 0.005))
-add.arrows(bp, arrow.tops, arrow.bottoms)
-```
-
-```{r, dens_var_infer_sig, fig.height = 2.5, warning=FALSE}
-d.sub.target.sig.ests <- 
-  ICAMS::TransformCatalog(sub.target.sig.ests, 
-                          target.catalog.type = "density.signature")
-
-arrow.tops <- apply(d.sub.target.sig.ests, 1, max)
-arrow.bottoms <- apply(d.sub.target.sig.ests, 1, min)
-min.sub <- min(arrow.bottoms)
-bp <- pcat1(
-  ICAMS::TransformCatalog(inferred.sig,
-                          target.catalog.type = "density.signature"),
-  ylim = c(min.sub, max(arrow.tops)  + 0.005))
-add.arrows(bp, arrow.tops, arrow.bottoms)
-
-```
 
 
 ### Show combined background and target spectra
 
-```{r, plot.combined.count}
+```{r, plot.combined.count, eval=FALSE}
 # debug(stacked.pcat)
 stacked.pcat(inferred.bg.spectra, subtracted.target.spectra)
 ```
 
-```{r, plot.combined.density}
+```{r, plot.combined.density, eval=FALSE}
 stacked.pcat(
   ICAMS::TransformCatalog(inferred.bg.spectra,
                           target.catalog.type = "density"),
@@ -400,7 +357,7 @@ stacked.pcat(
 
 `r ifelse(params$showrecon, "### Reconstruct spectra", "")`
 
-```{r, get.reconstructed.spectra, eval=params$showrecon, echo=params$showrecon}
+```{r, get.reconstructed.spectra, eval=FALSE, echo=params$showrecon}
 reconstructed.target.spectra <- 
   round(inferred.sig %*% matrix(ret$exposures.to.target.sig, nrow = 1))
 reconstructed.target.spectra <- 
@@ -428,7 +385,7 @@ lapply(1:ncol(spectra),
 
 `r ifelse(params$showrecon, "### Original and reconstructed spectra side-by-side", "")`
 
-```{r, plot.orig.and.recon, eval=params$showrecon, echo=params$showrecon}
+```{r, plot.orig.and.recon, eval=FALSE, echo=params$showrecon}
 InterleaveMatrices <- function(m1, m2) {
   stopifnot(dim(m1) == dim(m2))
   i2 <- 1:ncol(m1) * 2
@@ -452,7 +409,7 @@ s.by.s <- ICAMS::as.catalog(s.by.s,
                             abundance = attr(spectra, "abundance"))
 ```
 
-```{r, plot.replicate1, eval=params$showrecon, echo=params$showrecon}
+```{r, plot.replicate1, eval=FALSE, echo=params$showrecon}
 for (i in 0:(ncol(spectra) - 1)) {
   pcat(s.by.s[ , (2 * i + 1):(2 * i + 2) ])
 }
@@ -462,7 +419,7 @@ for (i in 0:(ncol(spectra) - 1)) {
 
 ### Is the inferred signature needed?
 
-```{r, sanity_check_1_is_target_needed, eval = TRUE}
+```{r, sanity_check_1_is_target_needed, eval = FALSE}
 library(mSigAct)
 m.opts <- mSigAct::DefaultManyOpts()
 two.sigs2 <- two.sigs
@@ -476,10 +433,9 @@ mSigAct::SignaturePresenceTest(
 
 ```
 
-
 ### Is the background signature needed?
 
-```{r, sanity_check_2_is_backgrouind_needed, eval = TRUE}
+```{r, sanity_check_2_is_backgrouind_needed, eval = FALSE}
 mSigAct::SignaturePresenceTest(
   spectra          = spectra,
   sigs             = two.sigs2,

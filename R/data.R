@@ -2,21 +2,20 @@
 #'
 #'
 #' @format A list with one element for each cell line. 
-#' 
 #' Each element of the list
 #' is in turn a list with the elements \describe{
 #' 
 #'    \item{\code{background.sig}}{The background signatures as a
 #'    single-column \code{\link[ICAMS]{ICAMS}} catalog.}
-#'    
+#'  
 #'    \item{\code{sig.nbinom.size}}{The negative binomial \code{size} dispersion parameter for the 
 #'    background signature profile. See \code{\link[stats]{NegBinomial}}.}
 #'    
 #'    \item{\code{count.nbinom.mu}}{The mean of the numbers of mutations in \code{input.spectra}.}
-#'    
+#'   
 #'    \item{\code{count.nbinom.size}}{The negative binomial \code{size} dispersion parameter for the 
 #'    numbers of mutations caused by the background signature (i.e. \code{count.nbinom.mu}).
-#'    See \code{\link[stats]{NegBinomial}}.
+#'    See \code{\link[stats]{NegBinomial}}.}
 #'    
 #'    \item{\code{input.spectra}}{The \code{bg.spectra} used to estimate the background.}
 #' }
@@ -29,9 +28,9 @@
 #' 
 #' @examples 
 #' background.info[["HepG2"]]$count.nbinom.mu
-#' HepG2.background.info[["HepG2"]]$count.nbinom.size
-#' HepG2.background.info[["HepG2"]]$sig.nbinom.size
-#' HepG2.background.info[["HepG2"]]$background.sig[1:3, ]
+#' background.info[["HepG2"]]$count.nbinom.size
+#' background.info[["HepG2"]]$sig.nbinom.size
+#' background.info[["HepG2"]]$background.sig[1:3, ]
 #' 
 #' 
 #' 

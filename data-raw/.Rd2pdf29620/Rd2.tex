@@ -1,0 +1,38 @@
+\documentclass[a4paper]{book}
+\usepackage[times,inconsolata,hyper]{Rd}
+\usepackage{makeidx}
+\usepackage[utf8]{inputenc} % @SET ENCODING@
+% \usepackage{graphicx} % @USE GRAPHICX@
+\makeindex{}
+\begin{document}
+\chapter*{}
+\begin{center}
+{\textbf{\huge Package `mSigBG'}}
+\par\bigskip{\large \today}
+\end{center}
+\begin{description}
+\raggedright{}
+\inputencoding{utf8}
+\item[Title]\AsIs{Separate Background Mutational Signature from Signature Due to a Mutagen}
+\item[Version]\AsIs{0.0.0.9003}
+\item[Description]\AsIs{Separate a ``background mutational signature'' from observed mutational spectra.
+Deigned for the delineation of signatures from cell cultures exposed to mutagens.}
+\item[License]\AsIs{GPL-3}
+\item[Encoding]\AsIs{UTF-8}
+\item[Language]\AsIs{en-US}
+\item[Remotes]\AsIs{github::steverozen/ICAMS@master}
+\item[Depends]\AsIs{R (>= 3.5)}
+\item[LazyData]\AsIs{true}
+\item[Roxygen]\AsIs{list(markdown = TRUE)}
+\item[RoxygenNote]\AsIs{7.1.0}
+\item[biocViews]\AsIs{}
+\item[Imports]\AsIs{ICAMS,
+nloptr,
+stats,
+lsa}
+\item[Suggests]\AsIs{testthat,
+devtools,
+usethis,
+rmarkdown}
+\end{description}
+\Rdcontents{\R{} topics documented:}

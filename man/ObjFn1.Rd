@@ -16,7 +16,7 @@ sum of the activities of the background signature and the signature
 of an experimental treatment.}
 
 \item{bg.sig.info}{Information on the background signature. See for example
-\code{\link{HepG2.background.info}}.
+\code{\link{background.info}}, e.g. \code{background.info[["HepG2"]]}.
 
 The caller will seek to minimize the value of this function.}
 }

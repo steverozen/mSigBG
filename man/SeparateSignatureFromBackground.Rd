@@ -15,8 +15,8 @@ SeparateSignatureFromBackground(
 \item{spectra}{The spectra from which to subtract the background,
 as a matrix or \code{\link[ICAMS]{ICAMS}} catalog.}
 
-\item{bg.sig.info}{Information about the background signature. See for example
-\code{\link{HepG2.background.info}}.}
+\item{bg.sig.info}{Information about the background signature. See
+\code{\link{background.info}}.}
 
 \item{m.opts}{Options to pass to \code{\link[nloptr]{nloptr}}.}
 
