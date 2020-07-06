@@ -3,11 +3,9 @@ author: "Steve Rozen"
 output: html_document
 date: '`r Sys.Date()`'
 params:
-  showrecon: TRUE
-  showbgspec: TRUE
   verbose: TRUE
 
-title: Background subtraction for various platinum-based chemotherapeutics  
+title: Background separation for various platinum-based chemotherapeutics  
 ---
 
 ```{r setup, include=FALSE}
@@ -22,14 +20,14 @@ In this example we subtract the background signatures of
 HepG2 and MCF-10A cells from the spectra of cells treated with
 three platinum-based chemotherapies.
 
-`r ifelse(params$verbose, "## Libraries, graphics parameters, and helper functions", "")`
+`r ifelse(params$verbose, "## Libraries and helper functions", "")`
 
 
 ```{r, libraries, echo=TRUE, message=FALSE}
-library(mSigBG, quietly = TRUE)
-library(ICAMS, quietly = TRUE)
+library(mSigBG)
+library(ICAMS)
 library(BSgenome.Hsapiens.1000genomes.hs37d5)
-library(philentropy, quietly = TRUE)
+library(philentropy)
 ```
 
 ```{r, util_func, echo=params$verbose}
@@ -82,7 +80,7 @@ pcat <- function(catalog) {
 
 ## Generate and read input spectra
 
-These are the spectra from cell lines exposed to cisplatin, carboplatin, or oxaliplatin
+These are the spectra from cell lines exposed to cisplatin, carboplatin, or oxaliplatin.
 
 ### Generate spectra "catalogs" from HepG2 and MCF-10A cisplatin VCF files
 
@@ -153,19 +151,11 @@ pcat(hepg2.car)
 pcat(mcf10a.car)
 ```
 
-```{r, plot.input.oxa, fig.height=5, fig.width=7}
+```{r, plot.input.oxa, fig.height=3.3, fig.width=7}
 pcat(hepg2.oxa)
 ```
 
-
-`r ifelse(params$verbose, "### Input as density spectra", "")`
-
-```{r input_spectra_as_density, eval=FALSE, echo=params$verbose}
-pcat(ICAMS::TransformCatalog(spectra, 
-                             target.catalog.type = "density"))
-```
-
-## Similarity among spectra
+## Cosine similarity among spectra
 
 ```{r, signture.lists}
 hepg2.exposures <- list(hepg2.cis, hepg2.car, hepg2.oxa)
@@ -262,6 +252,10 @@ if (!file.exists("all.separated.Rdata")) {
 
 ### Exposures to background signature
 
+This is a sanity check. The number of mutations assigned 
+to the background signature should be reasonable
+given the distribution in untreated cell lines.
+
 ```{r background.exposures}
 background.info[["HepG2"]]$count.nbinom.mu
 background.info[["MCF10A"]]$count.nbinom.mu
@@ -279,7 +273,7 @@ lapply(all.separated,
 
 ## Signature based on inferred target spectra with uncertainty
 
-The bars show the max and min proportion across all input spectra.
+The bars show the maximum and minimum proportions across all input spectra.
 
 ```{r, sig.and.uncertainty.counts, fig.height=3, fig.width=7}
 par(mfrow = c(1, 1))
@@ -371,34 +365,3 @@ gplots::heatmap.2(x = cosine.sim,
 
 ```
 
-
-```{r, sanity_check_1_is_target_needed, eval = FALSE}
-## Sanity check: are both the background and the inferred signature needed?
-
-### Is the inferred signature needed?
-
-library(mSigAct)
-m.opts <- mSigAct::DefaultManyOpts()
-two.sigs2 <- two.sigs
-two.sigs2[ , 1] <- two.sigs2[ , 1] / sum(two.sigs2[ , 1])
-mSigAct::SignaturePresenceTest(
-  spectra          = spectra,
-  sigs             = two.sigs2,
-  target.sig.index = 1,
-  eval_f           = mSigAct::ObjFnBinomMaxLHNoRoundOK,
-  m.opts           = m.opts)
-
-```
-
-
-
-```{r, sanity_check_2_is_backgrouind_needed, eval = FALSE}
-### Is the background signature needed?
-
-mSigAct::SignaturePresenceTest(
-  spectra          = spectra,
-  sigs             = two.sigs2,
-  target.sig.index = 2,
-  eval_f           = mSigAct::ObjFnBinomMaxLHNoRoundOK,
-  m.opts           = m.opts)
-```
