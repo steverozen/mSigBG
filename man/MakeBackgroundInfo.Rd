@@ -7,10 +7,10 @@
 MakeBackgroundInfo(bg.spectra, title = "Background.sig")
 }
 \arguments{
+\item{bg.spectra}{The spectra from which to compute the background information.}
+
 \item{title}{The name of the single column of the signature in the
 \code{background.sig} element of the output.}
-
-\item{bg.specta}{The spectra from which to compute the background information.}
 }
 \value{
 A list with the elements \describe{
@@ -20,7 +20,8 @@ single-column \code{\link[ICAMS]{ICAMS}} catalog.}
 background signature profile. See \code{\link[stats]{NegBinomial}}.}
 \item{\code{count.nbinom.mu}}{The mean of the numbers of mutations in \code{bg.spectra}.}
 \item{\code{count.nbinom.size}}{The negative binomial \code{size} dispersion parameter for the
-numbers of mutations caused by the background signature (i.e. \code{count.nbinom.mu}).
+numbers of mutations caused by the background signature
+(i.e. \code{count.nbinom.mu}).
 See \code{\link[stats]{NegBinomial}}.}
 \item{\code{input.spectra}}{The \code{bg.spectra} used to estimate the background.}
 }

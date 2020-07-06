@@ -29,7 +29,7 @@ three platinum-based chemotherapies.
 `r ifelse(params$verbose, "## Libraries, graphics parameters, and helper functions", "")`
 
 
-```{r, libraries, echo=params$verbose}
+```{r, libraries, echo=TRUE, message=FALSE}
 library(mSigBG, quietly = TRUE)
 library(ICAMS, quietly = TRUE)
 library(BSgenome.Hsapiens.1000genomes.hs37d5, quietly = TRUE)
@@ -221,6 +221,21 @@ gplots::heatmap.2(x = cosine.sim,
 
 ```
 
+```{r, pca1, eval = FALSE, echo=FALSE}
+# Not done yet
+all.spectra.as.sigs <-
+  ICAMS::TransformCatalog(all.spectra, 
+                          target.catalog.type = "counts.signature")
+
+pc <- prcomp(t(all.spectra.as.sigs), 
+             center = FALSE, scale = FALSE, retx = TRUE)
+
+factoextra::fviz_pca_ind(pc)
+
+
+```
+
+
 ## Decompose the background and target signatures
 
 ```{r, separate.hepg2}
@@ -276,13 +291,21 @@ if (!file.exists("all.separated.Rdata")) {
 ```{r background.exposures}
 background.info[["HepG2"]]$count.nbinom.mu
 background.info[["MCF10A"]]$count.nbinom.mu
-
+lapply(all.separated, 
+       function(x) { 
+         exposures <- x$exposures.to.bg.sig
+         names <- colnames(x$inferred.bg.spectra)
+         names(exposures) <- sub("-inf.bg.spect", "", names, fixed = TRUE)
+         return(exposures)
+       })
 
 
 ```
 
 
-## Signature based on inferred target spectra plus uncertainty
+## Signature based on inferred target spectra with uncertainty
+
+The bars show the max and min proportion across all input spectra.
 
 ```{r, sig.and.uncertainty.counts, fig.height=3, fig.width=7}
 par(mfrow = c(1, 1))
@@ -329,8 +352,8 @@ for (test.name in names(all.separated)) {
   
   for (colnum in 1:ncol(bg.spectra)) {
     Plot1StackedSpectrum(
-      bg.cat.1 = bg.spectra[ , colnum, drop = FALSE],
-      target.cat.1 = ta.spectra[ , colnum, drop = FALSE])
+      background.spectrum = bg.spectra[ , colnum, drop = FALSE],
+      target.spectrum     = ta.spectra[ , colnum, drop = FALSE])
   }
 }
 
@@ -366,7 +389,7 @@ colnames(all.target.spectra) <-
 
 ```
 
-```{r, cosine.sim, fig.height=8.5, fig.width=6.5}
+```{r, cosine.sim}
 
 cosine.sim <- philentropy::distance(t(all.target.spectra), method = "cosine")
 rownames(cosine.sim) <- colnames(all.target.spectra)

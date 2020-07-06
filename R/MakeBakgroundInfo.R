@@ -1,6 +1,6 @@
 #' Estimate a background signature and its characteristics.
 #' 
-#' @param bg.specta The spectra from which to compute the background information.
+#' @param bg.spectra The spectra from which to compute the background information.
 #' 
 #' @param title The name of the single column of the signature in the
 #'   \code{background.sig} element of the output.
@@ -12,7 +12,8 @@
 #'    background signature profile. See \code{\link[stats]{NegBinomial}}.}
 #'    \item{\code{count.nbinom.mu}}{The mean of the numbers of mutations in \code{bg.spectra}.}
 #'    \item{\code{count.nbinom.size}}{The negative binomial \code{size} dispersion parameter for the 
-#'    numbers of mutations caused by the background signature (i.e. \code{count.nbinom.mu}).
+#'    numbers of mutations caused by the background signature 
+#'    (i.e. \code{count.nbinom.mu}).
 #'    See \code{\link[stats]{NegBinomial}}.}
 #'    \item{\code{input.spectra}}{The \code{bg.spectra} used to estimate the background.}
 #' }

@@ -1,6 +1,6 @@
 Package: mSigBG
 Title: Separate Background Mutational Signature from Signature Due to a Mutagen
-Version: 0.0.0.9003
+Version: 0.0.0.9004
 Authors@R: 
     person(given = "Steven",
            family = "Rozen",
