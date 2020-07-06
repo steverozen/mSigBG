@@ -15,7 +15,7 @@ mean.}
 }
 \value{
 The mean of the spectra as a signature, the
-constiuent spectra as signatures, and the y positions of the
+constituent spectra as signatures, and the y positions of the
 arrowheads.
 }
 \description{

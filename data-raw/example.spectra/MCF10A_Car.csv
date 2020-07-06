@@ -1,4 +1,4 @@
-Mutation type,Trinucleotide,MCF10A_Carb_cl1_SNVresult_intersect,MCF10A_Carb_cl2_SNVresult_intersect,MCF10A_Carb_cl3_SNVresult_intersect,MCF10A_Carb_cl4_SNVresult_intersect
+Mutation type,Trinucleotide,MCF10A_Car_cl1,MCF10A_Car_cl2,MCF10A_Carb_cl3_SNVresult_intersect,MCF10A_Cab_cl4
 C>A,ACA,140,126,98,113
 C>A,ACC,426,417,245,317
 C>A,ACG,13,10,7,10

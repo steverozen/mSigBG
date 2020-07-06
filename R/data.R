@@ -37,7 +37,7 @@
 "background.info"
 
 
-#' Example spectra of cell lines explsed to cisplatin
+#' Example spectra of cell lines exposed to cisplatin
 #' 
 #' @format A list of \code{\link[ICAMS]{ICAMS}} \code{counts} spectra catalog.
 #'

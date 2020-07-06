@@ -138,18 +138,18 @@ test_g_ineq <- function(est.target.sig.and.b, # Parameters to optimize
 #' 
 #' @return A list with the elements \describe{
 #'
-#'   \item{\code{inferred.target.sig}}{The estimated target signaute as a numerical
+#'   \item{\code{inferred.target.sig}}{The estimated target signature as a numerical
 #'    vector.}
 #'    
 #'   \item{exposures.to.target.sig}{The estimated total number of mutations due
-#'     to the target signature in each input specturm.}
+#'     to the target signature in each input spectrum.}
 #'     
 #'   \item{\code{exposures.to.bg.sig}}{The estimated total number of mutations due
-#'    to the backgound in each input spectrum.}
+#'    to the background in each input spectrum.}
 #'    
 #'   \item{\code{message}}{The \code{message} element of \code{all.opt.ret}.}
 #'   
-#'   \item{\code{all.opt.ret}}{The entire return value from the optimaztion.
+#'   \item{\code{all.opt.ret}}{The entire return value from the optimization.
 #'   See \code{\link[nloptr]{nloptr}}}
 #' }
 #' 

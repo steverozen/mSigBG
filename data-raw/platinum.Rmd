@@ -3,14 +3,10 @@ author: "Steve Rozen"
 output: html_document
 date: '`r Sys.Date()`'
 params:
-  bgfactor: 2
   showrecon: TRUE
   showbgspec: TRUE
-  onefhigh: 2.5
   verbose: TRUE
-  count.nbinom.size: 20
-  def.fig.wid: 4
-  
+
 title: Background subtraction for various platinum-based chemotherapeutics  
 ---
 
@@ -32,7 +28,7 @@ three platinum-based chemotherapies.
 ```{r, libraries, echo=TRUE, message=FALSE}
 library(mSigBG, quietly = TRUE)
 library(ICAMS, quietly = TRUE)
-library(BSgenome.Hsapiens.1000genomes.hs37d5, quietly = TRUE)
+library(BSgenome.Hsapiens.1000genomes.hs37d5)
 library(philentropy, quietly = TRUE)
 ```
 
@@ -90,6 +86,9 @@ These are the spectra from cell lines exposed to cisplatin, carboplatin, or oxal
 
 ### Generate spectra "catalogs" from HepG2 and MCF-10A cisplatin VCF files
 
+These are variant call files (VCFs) from mutations in HepG2 and MCF-10A
+cells treated with cisplatin.
+
 ```{r, process.cisplatin.vcfs}
 if (!file.exists("example.spectra/cis.spectra.Rdata")) {
   vcfs <- list.files("example.vcfs/HepG2_Cis/", full.names = TRUE)
@@ -128,19 +127,11 @@ hepg2.oxa  <- ICAMS::ReadCatalog("example.spectra/HepG2_Oxa.csv",
                                  ref.genome = BSgenome.Hsapiens.1000genomes.hs37d5,
                                  region = "genome",
                                  catalog.type = "counts")
-colnames(hepg2.oxa) <- sub("_SNVresult_intersect", "",
-                           x = colnames(hepg2.oxa), fixed = TRUE)
-colnames(hepg2.oxa) <- sub("pl_", "a_",
-                           x = colnames(hepg2.oxa), fixed = TRUE)
 
 mcf10a.car <- ICAMS::ReadCatalog("example.spectra/MCF10A_Car.csv", 
                                  ref.genome = BSgenome.Hsapiens.1000genomes.hs37d5,
                                  region = "genome",
                                  catalog.type = "counts")
-colnames(mcf10a.car) <- sub("_SNVresult_intersect", "",
-                           x = colnames(mcf10a.car), fixed = TRUE)
-colnames(mcf10a.car) <- sub("_Carb_", "_car_",
-                           x = colnames(mcf10a.car), fixed = TRUE)
 
 ```
 
@@ -205,22 +196,6 @@ gplots::heatmap.2(x = cosine.sim,
 ```
 
 
-```{r, spectra.heatmap2}
-to.delete <- grep("Oxa_cl4", colnames(all.spectra))
-cosine.sim <- philentropy::distance(
-  t(all.spectra[ , -to.delete]), method = "cosine")
-rownames(cosine.sim) <- colnames(all.spectra)[-to.delete]
-colnames(cosine.sim) <- colnames(all.spectra)[-to.delete]
-gplots::heatmap.2(x = cosine.sim,
-                  dendrogram = "column",
-                  margins = c(9, 9),
-                  cex.axis = 0.5,
-                  symm = TRUE,
-                  trace = "none")
-
-
-```
-
 ```{r, pca1, eval = FALSE, echo=FALSE}
 # Not done yet
 all.spectra.as.sigs <-
@@ -234,7 +209,6 @@ factoextra::fviz_pca_ind(pc)
 
 
 ```
-
 
 ## Decompose the background and target signatures
 
@@ -373,7 +347,7 @@ for (test.name in names(all.separated)) {
   all.target.spectra <- cbind(all.target.spectra, tmp)
 }
 colnames(all.target.spectra) <-
-  sub(".vcf.inf.tg.spect", "",
+  sub(".inf.tg.spect", "",
       x = colnames(all.target.spectra),
       fixed = TRUE)
 
@@ -381,12 +355,6 @@ colnames(all.target.spectra) <-
   sub(".inf.tg.spect", "",
       x = colnames(all.target.spectra),
       fixed = TRUE)
-
-colnames(all.target.spectra) <-
-  sub("_SNVresult_intersect", "",
-      x = colnames(all.target.spectra),
-      fixed = TRUE)
-
 ```
 
 ```{r, cosine.sim}
@@ -402,101 +370,6 @@ gplots::heatmap.2(x = cosine.sim,
                   trace = "none")
 
 ```
-
-```{r, skip.last.oxaliplatin}
-to.delete <- grep("Oxa_cl4", colnames(all.target.spectra))
-cosine.sim <- 
-  philentropy::distance(t(all.target.spectra[ , -to.delete]), 
-                        method = "cosine")
-rownames(cosine.sim) <- colnames(all.target.spectra)[-to.delete]
-colnames(cosine.sim) <- colnames(all.target.spectra)[-to.delete]
-gplots::heatmap.2(x = cosine.sim,
-                  dendrogram = "column",
-                  margins = c(9, 9),
-                  cex.axis = 0.5,
-                  symm = TRUE,
-                  trace = "none")
-```
-
-
-```{r, cossim, eval=FALSE, echo=FALSE}
-cossim <- function(v1, v2) {
-  if (!is.null(ncol(v1)))  {
-    stopifnot(ncol(v1) == 1)
-    v1 <- v1[ , 1]
-  }
-  if (!is.null(ncol(v2)))  {
-    stopifnot(ncol(v2) == 1)
-    v2 <- v2[ , 1]
-  }
-  lsa::cosine(v1, v2)
-  
-}
-```
-
-
-`r ifelse(params$showrecon, "### Reconstruct spectra", "")`
-
-```{r, get.reconstructed.spectra, eval=FALSE, echo=params$showrecon}
-
-### Comparisions of inferred spectra and inferred signatures"
-reconstructed.target.spectra <- 
-  round(inferred.sig %*% matrix(ret$exposures.to.target.sig, nrow = 1))
-reconstructed.target.spectra <- 
-  ICAMS::as.catalog(
-    reconstructed.target.spectra,
-    catalog.type   = "counts",
-    region         = "genome",
-    abundance      = attr(spectra, "abundance"),
-    infer.rownames = TRUE)
-colnames(reconstructed.target.spectra) <-
-  paste0(colnames(spectra), "-mult-recon-spect")
-pcat(reconstructed.target.spectra)
-
-
-total.spectra <- reconstructed.target.spectra + inferred.bg.spectra
-
-
-lapply(1:ncol(spectra), 
-        function(col.index) {
-          return(list(
-            cossim = cossim(total.spectra[ , col.index], spectra[ , col.index]),
-            e.dist = dist(rbind(total.spectra[ , col.index], spectra[ , col.index]), method = "euclidean")))})
-
-```
-
-`r ifelse(params$showrecon, "### Original and reconstructed spectra side-by-side", "")`
-
-```{r, plot.orig.and.recon, eval=FALSE, echo=params$showrecon}
-InterleaveMatrices <- function(m1, m2) {
-  stopifnot(dim(m1) == dim(m2))
-  i2 <- 1:ncol(m1) * 2
-  i1 <- 1 + (0:(ncol(m1) - 1) * 2)
-  out <- matrix(nrow = nrow(m1), ncol = 2 * ncol(m1))
-  out[ , i1] <- m1
-  out[ , i2] <- m2
-  c.names <- character(2 * ncol(m1))
-  c.names[i1] <- colnames(m1)
-  c.names[i2] <- colnames(m2)
-  colnames(out) <- c.names
-  rownames(out) <- rownames(m1)
-  return(out)
-  
-}
-
-s.by.s <- InterleaveMatrices(spectra, total.spectra)
-s.by.s <- ICAMS::as.catalog(s.by.s, 
-                            region = "genome",
-                            catalog.type = "counts",
-                            abundance = attr(spectra, "abundance"))
-```
-
-```{r, plot.replicate1, eval=FALSE, echo=params$showrecon}
-for (i in 0:(ncol(spectra) - 1)) {
-  pcat(s.by.s[ , (2 * i + 1):(2 * i + 2) ])
-}
-```
-
 
 
 ```{r, sanity_check_1_is_target_needed, eval = FALSE}
