@@ -25,21 +25,7 @@ three platinum-based chemotherapies.
 
 ```{r, libraries, echo=TRUE, message=FALSE}
 library(mSigBG)
-library(ICAMS)
 library(BSgenome.Hsapiens.1000genomes.hs37d5)
-```
-
-```{r, util_func, echo=params$verbose}
-
-set.initial.par <- function(catalog) {
-  par(pin = c(3*ncol(catalog), 1))
-  par(mfrow = c(ncol(catalog), 1))
-  par(mar = c(2, 4, 4, 2))
-  par(cex = 0.8)
-  par(cex.main = 1.4) 
-}
-
-last.bottom.mar <- 4.5
 ```
 
 
@@ -61,12 +47,16 @@ pcat1 <- function(catalog, ylim = NULL) {
 
 ```{r, define_pcat, echo=params$verbose}
 pcat <- function(catalog) {
-  set.initial.par(catalog)
+  par(pin = c(3*ncol(catalog), 1))
+  par(mfrow = c(ncol(catalog), 1))
+  par(mar = c(2, 4, 4, 2))
+  par(cex = 0.8)
+  par(cex.main = 1.4) 
   xlabels <- FALSE
   for (i in 1:ncol(catalog)) {
     if (FALSE && i == ncol(catalog)) { # FALSE an experiment
       xlabels <- TRUE
-      par(mar = c(last.bottom.mar, 4, 3, 2))
+      par(mar = c(4.5, 4, 3, 2))
     }
     
     ICAMS::PlotCatalog(catalog[ , i, drop = FALSE],
@@ -104,7 +94,10 @@ if (!file.exists("spectra/HepG2_and_MCF10A_Cis.spectra.Rdata")) {
   colnames(mcf10a.cis) <- 
     sub(".vcf", "", x = colnames(mcf10a.cis), fixed = TRUE)
   
-  save(hepg2.cis, mcf10a.cis, file = "HepG2_and_MCF10A_Cis.spectra.Rdata")
+  save(hepg2.cis, 
+       mcf10a.cis, 
+       file = "spectra/HepG2_and_MCF10A_Cis.spectra.Rdata")
+  
   rm(vcfs)
 } else {
   load("spectra/HepG2_and_MCF10A_Cis.spectra.Rdata")
@@ -154,7 +147,7 @@ pcat(mcf10a.car)
 pcat(hepg2.oxa)
 ```
 
-## Cosine similarity among spectra
+## Cosine similarity among raw spectra
 
 ```{r, signture.lists}
 hepg2.exposures <- list(hepg2.cis, hepg2.car, hepg2.oxa)
@@ -172,7 +165,8 @@ temp.names <- unlist(lapply(c(hepg2.exposures, mcf10a.exposures), colnames))
 
 colnames(all.spectra) <- temp.names
 
-cosine.sim <- philentropy::distance(t(all.spectra), method = "cosine")
+cosine.sim <- suppressMessages(
+  philentropy::distance(t(all.spectra), method = "cosine"))
 rownames(cosine.sim) <- colnames(all.spectra)
 colnames(cosine.sim) <- colnames(all.spectra)
 gplots::heatmap.2(x = cosine.sim,
@@ -184,7 +178,42 @@ gplots::heatmap.2(x = cosine.sim,
 
 ```
 
-## Decompose the background and target signatures
+
+## Principal components of raw spectra
+
+```{r, pca.raw.spectra}
+all.spectra.as.sigs <- 
+  ICAMS::TransformCatalog(all.spectra,
+                          target.catalog.type = "counts.signature")
+
+pc <- prcomp(t(all.spectra.as.sigs), center = TRUE, scale = FALSE, retx = TRUE)
+
+factoextra::fviz_pca_ind(pc, repel = TRUE)
+
+factoextra::fviz_contrib(
+  pc, choice   = "var", 
+  top          = 20, 
+  xtickslab.rt = 90)
+
+factoextra::fviz_contrib(
+  pc, choice   = "var", 
+  top          = 20,
+  axes         = 2,
+  xtickslab.rt = 90)
+
+```
+
+## Background signatures, for refrence
+
+```{r, plot.background, fig.height=3, fig.width=7} 
+
+pcat(mSigBG::background.info[["MCF10A"]]$background.sig)
+pcat(mSigBG::background.info[["HepG2"]]$background.sig)
+
+```
+
+
+## Separate the background and target signatures
 
 ```{r, separate.hepg2}
 one.separation <- function(sig.name, sig.list, bg.sig.info, my.seed = 101010) {
@@ -234,7 +263,7 @@ if (!file.exists("all.separated.Rdata")) {
 
 ```
 
-### Exposures to background signature
+### Sanity check: exposures to background signature
 
 This is a sanity check. The number of mutations assigned 
 to the background signature should be reasonable
@@ -255,7 +284,7 @@ lapply(all.separated,
 ```
 
 
-## Signature based on inferred target spectra with uncertainty
+## Signatures based on inferred target spectra with uncertainty
 
 The bars show the maximum and minimum proportions across all input spectra.
 
@@ -289,7 +318,7 @@ for (test.name in names(all.separated)) {
 ```
 
 
-### Stacked bar charts
+### Stacked bar charts showing target and background signature exposures
 
 ```{r, stacked.charts, fig.height=3, fig.width=7}
 par(mfrow = c(1, 1))
@@ -312,7 +341,7 @@ for (test.name in names(all.separated)) {
 ```
 
 
-### Similarities across combined partial target spectra and inferred signatures
+## Similarities across combined partial target spectra and inferred signatures
 
 ```{r, remove.to.dot}
 remove.to.dot <- function(x, times) {
@@ -338,7 +367,7 @@ colnames(all.target.spectra) <- remove.to.dot(colnames(all.target.spectra), 3)
 
 ```
 
-#### Heatmap of cosine similarity
+### Heatmap of cosine similarities
 
 ```{r, heatmap.cosine.sim}
 
@@ -351,7 +380,9 @@ grist <- cbind(
                           target.catalog.type = "counts.signature"), 
   all.target.sigs)
 
-cosine.sim <- philentropy::distance(t(grist), method = "cosine")
+cosine.sim <- suppressMessages(
+  philentropy::distance(t(grist), method = "cosine"))
+  
 rownames(cosine.sim) <- colnames(grist)
 colnames(cosine.sim) <- colnames(grist)
 gplots::heatmap.2(x = cosine.sim,
@@ -362,25 +393,79 @@ gplots::heatmap.2(x = cosine.sim,
                   trace = "none")
 ```
 
-#### Principal components analysis
+### Principal components analysis
+
+#### PCA with signatures and partial spectra
 
 ```{r, principal.components}
 
-pc <- prcomp(t(grist), center = FALSE, scale = FALSE, retx = TRUE)
+pc <- prcomp(t(grist), center = TRUE, scale = FALSE, retx = TRUE)
 
 factoextra::fviz_pca_ind(pc, repel = TRUE)
 
 factoextra::fviz_contrib(
-  pc, choice = "var", 
-  font.xtickslab = 6, 
+  pc, choice   = "var", 
+  top          = 20, 
+  xtickslab.rt = 90)
+
+factoextra::fviz_contrib(
+  pc, choice   = "var", 
+  top          = 20,
+  axes         = 2,
   xtickslab.rt = 90)
 
 ```
 
-The is only one major dimension, and it is due
+There is only one major dimension, and it is due
 mainly to CCC > CTC, CCT > CTT, and GCC > CAG mutations.
 
-### How well to combinations of COSMIC signatures SBS31 and SBS35 reconstruct experimental signatures?
+#### PCA on signatures only
+
+```{r, pca.signatures.only}
+
+pc <- prcomp(t(all.target.sigs), center = TRUE, scale = FALSE, retx = TRUE)
+
+factoextra::fviz_pca_ind(pc, repel = TRUE)
+
+factoextra::fviz_contrib(
+  pc, choice   = "var", 
+  top          = 20, 
+  xtickslab.rt = 90)
+
+factoextra::fviz_contrib(
+  pc, choice   = "var", 
+  top          = 20,
+  axes         = 2,
+  xtickslab.rt = 90)
+
+```
+
+#### PCA without oxaliplatin
+
+```{r, pca.no.oxa}
+
+ox.indices <- grep("oxa", colnames(grist), ignore.case = TRUE) 
+grist.no.ox <- grist[ , -ox.indices]
+pc <- prcomp(t(grist.no.ox), center = TRUE, scale = FALSE, retx = TRUE)
+
+factoextra::fviz_pca_ind(pc, repel = TRUE)
+
+factoextra::fviz_contrib(
+  pc, choice     = "var", 
+  xtickslab.rt   = 90,
+  top            = 20)
+
+factoextra::fviz_contrib(
+  pc, choice     = "var", 
+  xtickslab.rt   = 90,
+  top            = 20,
+  axes           = 2)
+
+```
+
+## How well do combinations of COSMIC signatures SBS31 and SBS35 reconstruct experimental signatures?
+
+### Set up numerical optimizaiton for maximum cosine similarity
 
 ```{r setup.reconstruction}
 
@@ -425,6 +510,8 @@ one.opt <- function(sig, method = "cosine", invert = -1) {
 
 ```
 
+### Results of reconstruction from SBS31 and SBS35
+
 ```{r, reconstruction.result}
 
 t( 
@@ -442,11 +529,8 @@ Conclusion: the experimental cisplatin
 signatures are
 best reconstructed by combinations of
 SBS31 and SBS35, the carboplatin signatures are 
-constructed pretty well, and  
-Oxaliplatin is not reconstructed as well.
+constructed pretty well, and oxaliplatin is not reconstructed as well.
 Hypothesis: The relative contributions of SBS31 and SBS35
 may vary across samples. Can check to see if this is the case
 for the individual cell line partial spectra.
 
-
-```
