@@ -27,7 +27,6 @@ three platinum-based chemotherapies.
 library(mSigBG)
 library(ICAMS)
 library(BSgenome.Hsapiens.1000genomes.hs37d5)
-library(philentropy)
 ```
 
 ```{r, util_func, echo=params$verbose}
@@ -88,7 +87,7 @@ These are variant call files (VCFs) from mutations in HepG2 and MCF-10A
 cells treated with cisplatin.
 
 ```{r, process.cisplatin.vcfs}
-if (!file.exists("spectra/cis.spectra.Rdata")) {
+if (!file.exists("spectra/HepG2_and_MCF10A_Cis.spectra.Rdata")) {
   vcfs <- list.files("vcfs/HepG2_Cis/", full.names = TRUE)
   hepg2.cis <- ICAMS::StrelkaSBSVCFFilesToCatalog(
     files      = vcfs,
@@ -113,7 +112,7 @@ if (!file.exists("spectra/cis.spectra.Rdata")) {
 
 ```
 
-### Read carboplatin and oxalipltin spectra catalogs
+### Read carboplatin and oxaliplatin spectra catalogs
 
 ```{r, read.catalogs}
 hepg2.car  <- ICAMS::ReadCatalog("spectra/HepG2_Car.csv", 
@@ -182,21 +181,6 @@ gplots::heatmap.2(x = cosine.sim,
                   cex.axis = 0.5,
                   symm = TRUE,
                   trace = "none")
-
-```
-
-
-```{r, pca1, eval = FALSE, echo=FALSE}
-# Not done yet
-all.spectra.as.sigs <-
-  ICAMS::TransformCatalog(all.spectra, 
-                          target.catalog.type = "counts.signature")
-
-pc <- prcomp(t(all.spectra.as.sigs), 
-             center = FALSE, scale = FALSE, retx = TRUE)
-
-factoextra::fviz_pca_ind(pc)
-
 
 ```
 
@@ -328,40 +312,141 @@ for (test.name in names(all.separated)) {
 ```
 
 
-### Similarities between inferred signatures
+### Similarities across combined partial target spectra and inferred signatures
+
+```{r, remove.to.dot}
+remove.to.dot <- function(x, times) {
+  for (ii in 1:times) {
+    x <- sub("[^\\.]*\\.", "", x = x, perl = TRUE)
+  }
+  return(x)
+}
+```
 
 
 ```{r, gather.spectra.and.sigs}
 
+inferred.spectra.list <- lapply(all.separated, `[[`, "inferred.target.spectra")
+all.target.spectra <- do.call(cbind, inferred.spectra.list)
 
-all.target.spectra <- matrix(nrow = 96, ncol = 0)
-for (test.name in names(all.separated)) {
-  tmp <- all.separated[[test.name]]$inferred.target.spectra
-  attr(tmp, "class") <- c("matrix", "array")
-  all.target.spectra <- cbind(all.target.spectra, tmp)
-}
+# Clean up the columb names
 colnames(all.target.spectra) <-
   sub(".inf.tg.spect", "",
       x = colnames(all.target.spectra),
       fixed = TRUE)
+colnames(all.target.spectra) <- remove.to.dot(colnames(all.target.spectra), 3)
 
-colnames(all.target.spectra) <-
-  sub(".inf.tg.spect", "",
-      x = colnames(all.target.spectra),
-      fixed = TRUE)
 ```
 
-```{r, cosine.sim}
+#### Heatmap of cosine similarity
 
-cosine.sim <- philentropy::distance(t(all.target.spectra), method = "cosine")
-rownames(cosine.sim) <- colnames(all.target.spectra)
-colnames(cosine.sim) <- colnames(all.target.spectra)
+```{r, heatmap.cosine.sim}
+
+all.target.sig.list <- lapply(all.separated, `[[`, "inferred.target.sig.as.catalog")
+
+all.target.sigs <- do.call(cbind, all.target.sig.list)
+
+grist <- cbind(
+  ICAMS::TransformCatalog(all.target.spectra, 
+                          target.catalog.type = "counts.signature"), 
+  all.target.sigs)
+
+cosine.sim <- philentropy::distance(t(grist), method = "cosine")
+rownames(cosine.sim) <- colnames(grist)
+colnames(cosine.sim) <- colnames(grist)
 gplots::heatmap.2(x = cosine.sim,
                   dendrogram = "column",
                   margins = c(9, 9),
                   cex.axis = 0.5,
                   symm = TRUE,
                   trace = "none")
+```
+
+#### Principal components analysis
+
+```{r, principal.components}
+
+pc <- prcomp(t(grist), center = FALSE, scale = FALSE, retx = TRUE)
+
+factoextra::fviz_pca_ind(pc, repel = TRUE)
+
+factoextra::fviz_contrib(
+  pc, choice = "var", 
+  font.xtickslab = 6, 
+  xtickslab.rt = 90)
 
 ```
 
+The is only one major dimension, and it is due
+mainly to CCC > CTC, CCT > CTT, and GCC > CAG mutations.
+
+### How well to combinations of COSMIC signatures SBS31 and SBS35 reconstruct experimental signatures?
+
+```{r setup.reconstruction}
+
+sbs31 <- PCAWG7::signature$genome$SBS96[ , "SBS31"]
+sbs35 <- PCAWG7::signature$genome$SBS96[ , "SBS35"]
+
+one.opt <- function(sig, method = "cosine", invert = -1) {
+  
+  sig <- as.vector(sig)
+  
+  my.obj.fn <- function(coef) {
+    recon <- coef[1]*sbs31 + coef[2]*sbs35 
+    return(
+      suppressMessages(
+        invert * philentropy::distance(
+          rbind(recon, sig), method = method)))
+  }
+  
+  g_ineq <- function(coef) {
+    abs(1 - sum(coef))  
+  }
+  
+  retval <- nloptr::nloptr(
+    x0          = c(0.5, 0.5),
+    eval_f      = my.obj.fn,
+    eval_g_ineq = g_ineq,
+    lb          = c(0, 0),
+    ub          = c(1, 1),
+    opt         = list(
+      algorithm = "NLOPT_LN_COBYLA",
+      maxeval   = 2000,
+      xtol_rel  = 1e-6,
+      xtol_abs  = 1e-7)
+  )
+  
+  retval <- list(similarity = invert * retval$objective, 
+              coef = retval$solution / sum(retval$solution))
+  
+  return(retval)
+  
+}
+
+```
+
+```{r, reconstruction.result}
+
+t( 
+  as.data.frame(
+    lapply(
+      all.target.sig.list, 
+      function(x) { ret <- one.opt(x)
+      names(ret$coef) <- c("sbs31", "sbs35")
+      return(c(cos.sim = ret$similarity, ret$coef))})
+  ))
+
+```
+
+Conclusion: the experimental cisplatin 
+signatures are
+best reconstructed by combinations of
+SBS31 and SBS35, the carboplatin signatures are 
+constructed pretty well, and  
+Oxaliplatin is not reconstructed as well.
+Hypothesis: The relative contributions of SBS31 and SBS35
+may vary across samples. Can check to see if this is the case
+for the individual cell line partial spectra.
+
+
+```
