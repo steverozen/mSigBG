@@ -88,8 +88,8 @@ These are variant call files (VCFs) from mutations in HepG2 and MCF-10A
 cells treated with cisplatin.
 
 ```{r, process.cisplatin.vcfs}
-if (!file.exists("example.spectra/cis.spectra.Rdata")) {
-  vcfs <- list.files("example.vcfs/HepG2_Cis/", full.names = TRUE)
+if (!file.exists("spectra/cis.spectra.Rdata")) {
+  vcfs <- list.files("vcfs/HepG2_Cis/", full.names = TRUE)
   hepg2.cis <- ICAMS::StrelkaSBSVCFFilesToCatalog(
     files      = vcfs,
     ref.genome = BSgenome.Hsapiens.1000genomes.hs37d5,
@@ -97,7 +97,7 @@ if (!file.exists("example.spectra/cis.spectra.Rdata")) {
   colnames(hepg2.cis) <- 
     sub(".vcf", "", x = colnames(hepg2.cis), fixed = TRUE)
   
-  vcfs <- list.files("example.vcfs/MCF10A_Cis/", full.names = TRUE)
+  vcfs <- list.files("vcfs/MCF10A_Cis/", full.names = TRUE)
   mcf10a.cis <- ICAMS::StrelkaSBSVCFFilesToCatalog(
     files      = vcfs,
     ref.genome = BSgenome.Hsapiens.1000genomes.hs37d5,
@@ -105,10 +105,10 @@ if (!file.exists("example.spectra/cis.spectra.Rdata")) {
   colnames(mcf10a.cis) <- 
     sub(".vcf", "", x = colnames(mcf10a.cis), fixed = TRUE)
   
-  save(hepg2.cis, mcf10a.cis, file = "example.spectra/cis.spectra.Rdata")
+  save(hepg2.cis, mcf10a.cis, file = "HepG2_and_MCF10A_Cis.spectra.Rdata")
   rm(vcfs)
 } else {
-  load("example.spectra/cis.spectra.Rdata")
+  load("spectra/HepG2_and_MCF10A_Cis.spectra.Rdata")
 }
 
 ```
@@ -116,17 +116,17 @@ if (!file.exists("example.spectra/cis.spectra.Rdata")) {
 ### Read carboplatin and oxalipltin spectra catalogs
 
 ```{r, read.catalogs}
-hepg2.car  <- ICAMS::ReadCatalog("example.spectra/HepG2_Car.csv", 
+hepg2.car  <- ICAMS::ReadCatalog("spectra/HepG2_Car.csv", 
                                  ref.genome = BSgenome.Hsapiens.1000genomes.hs37d5,
                                  region = "genome",
                                  catalog.type = "counts")
 
-hepg2.oxa  <- ICAMS::ReadCatalog("example.spectra/HepG2_Oxa.csv", 
+hepg2.oxa  <- ICAMS::ReadCatalog("spectra/HepG2_Oxa.csv", 
                                  ref.genome = BSgenome.Hsapiens.1000genomes.hs37d5,
                                  region = "genome",
                                  catalog.type = "counts")
 
-mcf10a.car <- ICAMS::ReadCatalog("example.spectra/MCF10A_Car.csv", 
+mcf10a.car <- ICAMS::ReadCatalog("spectra/MCF10A_Car.csv", 
                                  ref.genome = BSgenome.Hsapiens.1000genomes.hs37d5,
                                  region = "genome",
                                  catalog.type = "counts")

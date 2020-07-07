@@ -11,7 +11,7 @@
 
 <meta name="author" content="Steve Rozen" />
 
-<meta name="date" content="2020-07-06" />
+<meta name="date" content="2020-07-07" />
 
 <title>Background separation for various platinum-based chemotherapeutics</title>
 
@@ -365,7 +365,7 @@ summary {
 
 <h1 class="title toc-ignore">Background separation for various platinum-based chemotherapeutics</h1>
 <h4 class="author">Steve Rozen</h4>
-<h4 class="date">2020-07-06</h4>
+<h4 class="date">2020-07-07</h4>
 
 </div>
 
@@ -424,8 +424,8 @@ pcat1 &lt;- function(catalog, ylim = NULL) {
 <div id="generate-spectra-catalogs-from-hepg2-and-mcf-10a-cisplatin-vcf-files" class="section level3">
 <h3>Generate spectra “catalogs” from HepG2 and MCF-10A cisplatin VCF files</h3>
 <p>These are variant call files (VCFs) from mutations in HepG2 and MCF-10A cells treated with cisplatin.</p>
-<pre class="r"><code>if (!file.exists(&quot;example.spectra/cis.spectra.Rdata&quot;)) {
-  vcfs &lt;- list.files(&quot;example.vcfs/HepG2_Cis/&quot;, full.names = TRUE)
+<pre class="r"><code>if (!file.exists(&quot;spectra/cis.spectra.Rdata&quot;)) {
+  vcfs &lt;- list.files(&quot;vcfs/HepG2_Cis/&quot;, full.names = TRUE)
   hepg2.cis &lt;- ICAMS::StrelkaSBSVCFFilesToCatalog(
     files      = vcfs,
     ref.genome = BSgenome.Hsapiens.1000genomes.hs37d5,
@@ -433,7 +433,7 @@ pcat1 &lt;- function(catalog, ylim = NULL) {
   colnames(hepg2.cis) &lt;- 
     sub(&quot;.vcf&quot;, &quot;&quot;, x = colnames(hepg2.cis), fixed = TRUE)
   
-  vcfs &lt;- list.files(&quot;example.vcfs/MCF10A_Cis/&quot;, full.names = TRUE)
+  vcfs &lt;- list.files(&quot;vcfs/MCF10A_Cis/&quot;, full.names = TRUE)
   mcf10a.cis &lt;- ICAMS::StrelkaSBSVCFFilesToCatalog(
     files      = vcfs,
     ref.genome = BSgenome.Hsapiens.1000genomes.hs37d5,
@@ -441,25 +441,25 @@ pcat1 &lt;- function(catalog, ylim = NULL) {
   colnames(mcf10a.cis) &lt;- 
     sub(&quot;.vcf&quot;, &quot;&quot;, x = colnames(mcf10a.cis), fixed = TRUE)
   
-  save(hepg2.cis, mcf10a.cis, file = &quot;example.spectra/cis.spectra.Rdata&quot;)
+  save(hepg2.cis, mcf10a.cis, file = &quot;HepG2_and_MCF10A_Cis.spectra.Rdata&quot;)
   rm(vcfs)
 } else {
-  load(&quot;example.spectra/cis.spectra.Rdata&quot;)
+  load(&quot;spectra/HepG2_and_MCF10A_Cis.spectra.Rdata&quot;)
 }</code></pre>
 </div>
 <div id="read-carboplatin-and-oxalipltin-spectra-catalogs" class="section level3">
 <h3>Read carboplatin and oxalipltin spectra catalogs</h3>
-<pre class="r"><code>hepg2.car  &lt;- ICAMS::ReadCatalog(&quot;example.spectra/HepG2_Car.csv&quot;, 
+<pre class="r"><code>hepg2.car  &lt;- ICAMS::ReadCatalog(&quot;spectra/HepG2_Car.csv&quot;, 
                                  ref.genome = BSgenome.Hsapiens.1000genomes.hs37d5,
                                  region = &quot;genome&quot;,
                                  catalog.type = &quot;counts&quot;)
 
-hepg2.oxa  &lt;- ICAMS::ReadCatalog(&quot;example.spectra/HepG2_Oxa.csv&quot;, 
+hepg2.oxa  &lt;- ICAMS::ReadCatalog(&quot;spectra/HepG2_Oxa.csv&quot;, 
                                  ref.genome = BSgenome.Hsapiens.1000genomes.hs37d5,
                                  region = &quot;genome&quot;,
                                  catalog.type = &quot;counts&quot;)
 
-mcf10a.car &lt;- ICAMS::ReadCatalog(&quot;example.spectra/MCF10A_Car.csv&quot;, 
+mcf10a.car &lt;- ICAMS::ReadCatalog(&quot;spectra/MCF10A_Car.csv&quot;, 
                                  ref.genome = BSgenome.Hsapiens.1000genomes.hs37d5,
                                  region = &quot;genome&quot;,
                                  catalog.type = &quot;counts&quot;)</code></pre>
