@@ -377,8 +377,23 @@ summary {
 </div>
 <div id="libraries-and-helper-functions" class="section level2">
 <h2>Libraries and helper functions</h2>
-<pre class="r"><code>library(mSigBG)
-library(BSgenome.Hsapiens.1000genomes.hs37d5)</code></pre>
+<pre class="r"><code># CRAN packages
+library(ICAMS)
+require(philentropy)
+require(factoextra)
+require(gplots)
+require(nloptr)
+
+# Bioconductor
+library(BSgenome.Hsapiens.1000genomes.hs37d5)
+# If not available,
+# install.packages(&quot;BiocManager&quot;)
+# BiocManager::install(&quot;BSgenome.Hsapiens.1000genomes.hs37d5&quot;)
+
+# Other
+library(mSigBG)
+# if not available
+# remotes::install_github(&quot;steverozen/mSigBG&quot;, ref = &quot;1.0-branch&quot;)</code></pre>
 <pre class="r"><code># Plot a single catalog
 pcat1 &lt;- function(catalog, ylim = NULL) {
   par(pin = c(5, 1))
