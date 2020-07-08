@@ -30,7 +30,7 @@ MakeBackgroundInfo <- function(bg.spectra,
                                title             = "Background.sig",
                                sig.nbinom.size   = 10,
                                count.nbinom.size = 10) {
-  return(list(background.sig    = MeanOfSpectraAsSig(bg.spectra, title),
+  return(list(background.sig    = MeanOfSpectraAsSig(bg.spectra, title)$mean.sig,
               sig.nbinom.size   = sig.nbinom.size,
               count.nbinom.mu   = mean(colSums(bg.spectra)), 
               count.nbinom.size = count.nbinom.size,
