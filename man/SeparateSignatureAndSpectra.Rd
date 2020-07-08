@@ -2,7 +2,7 @@
 % Please edit documentation in R/SeparateSignatureAndSpectra.R
 \name{SeparateSignatureAndSpectra}
 \alias{SeparateSignatureAndSpectra}
-\title{Calculate the inferred target signature and inferred background and target components of input spectra}
+\title{Calculate the inferred target signature and inferred background and target components of input spectra.}
 \usage{
 SeparateSignatureAndSpectra(
   spectra,
@@ -35,5 +35,5 @@ to be from the target signature.}
 }
 }
 \description{
-Calculate the inferred target signature and inferred background and target components of input spectra
+Calculate the inferred target signature and inferred background and target components of input spectra.
 }
