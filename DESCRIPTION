@@ -1,14 +1,16 @@
 Package: mSigBG
 Title: Separate Background Mutational Signature from Signature Due to a Mutagen
-Version: 0.0.0.9005
+Version: 1.0.0
 Authors@R: 
     person(given = "Steven",
            family = "Rozen",
            role = c("aut", "cre"),
-           email = "first.last@example.com",
+           email = "steverozen@gmail.com",
            comment = c(ORCID = "0000-0002-4288-0056"))
-Description: Separate a "background mutational signature" from observed mutational spectra. 
-    Deigned for the delineation of signatures from cell cultures exposed to mutagens.
+Description: Separate a "background mutational signature" from a set of observed
+    mutational spectra. Designed for the delineation of signatures from cell 
+    cultures exposed to mutagens. 'mSigBG' stands for Mutational Signature
+    BackGround.
 License: GPL-3
 Encoding: UTF-8
 Language: en-US
