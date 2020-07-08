@@ -1,4 +1,4 @@
-#' Calculate the inferred target signature and inferred background and target components of input spectra
+#' Calculate the inferred target signature and inferred background and target components of input spectra.
 #' 
 #' 
 #' @inheritParams SeparateSignatureFromBackground

@@ -2,12 +2,7 @@
 % Please edit documentation in R/LLHSpectrumNegBinom.R
 \name{LLHSpectrumNegBinom}
 \alias{LLHSpectrumNegBinom}
-\title{Likelihood that \strong{1} observed spectrum was generated from a vector of expected mutation counts.
-
-Returns the sum of the negative binomial likelihoods
-that each each element of the
-spectrum (i.e., the count for each mutation type e.g. ACT > AAT)
-was generated from expected count for that mutation type.}
+\title{Likelihood that 1 observed spectrum was generated from a vector of expected mutation counts.}
 \usage{
 LLHSpectrumNegBinom(spectrum, expected.counts, nbinom.size, verbose = FALSE)
 }
@@ -30,13 +25,13 @@ See \code{\link[stats]{NegBinomial}}.}
 \item{verbose}{If \code{TRUE} print messages under some circumstances.}
 }
 \value{
-\code{log(likelihood(spectrum | expected.counts))}
-}
-\description{
-Likelihood that \strong{1} observed spectrum was generated from a vector of expected mutation counts.
-
-Returns the sum of the negative binomial likelihoods
+\code{log(likelihood(spectrum | expected.counts))}, or,
+in more detail,
+the sum of the negative binomial likelihoods
 that each each element of the
 spectrum (i.e., the count for each mutation type e.g. ACT > AAT)
-was generated from expected count for that mutation type.
+was generated from the expected count for that mutation type.
+}
+\description{
+Likelihood that 1 observed spectrum was generated from a vector of expected mutation counts.
 }

@@ -37,9 +37,9 @@
 "background.info"
 
 
-#' Example spectra of cell lines exposed to cisplatin
+#' Example spectra of cell lines exposed to cisplatin.
 #' 
-#' @format A list of \code{\link[ICAMS]{ICAMS}} \code{counts} spectra catalog.
+#' @format A list of \code{\link[ICAMS]{ICAMS}} \code{counts} spectra catalogs.
 #'
 #' @name example.spectra
 #' 
@@ -48,7 +48,7 @@
 "example.spectra"
 
 
-#' Background spectra for HepG2 and MCF-10A
+#' Background spectra for the HepG2 and MCF-10A cell lines.
 #' 
 #' @format An \code{\link[ICAMS]{ICAMS}} \code{counts} catalog.
 #' 
@@ -56,8 +56,7 @@
 #' 
 "HepG2.background.spectra"
 
-#' Background spectra for MCF-10A cells
-#' 
+ 
 #' @name background.spectra
 #' 
 "MCF10A.background.spectra"

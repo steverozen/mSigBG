@@ -1,9 +1,4 @@
-#' Likelihood that \strong{1} observed spectrum was generated from a vector of expected mutation counts.
-#'  
-#' Returns the sum of the negative binomial likelihoods
-#' that each each element of the
-#' spectrum (i.e., the count for each mutation type e.g. ACT > AAT)
-#' was generated from expected count for that mutation type.
+#' Likelihood that 1 observed spectrum was generated from a vector of expected mutation counts.
 #'  
 #' @param spectrum An observed spectrum (a numeric vector)
 #' 
@@ -22,7 +17,13 @@
 #' 
 #' @param verbose If \code{TRUE} print messages under some circumstances.
 #'
-#' @return \code{log(likelihood(spectrum | expected.counts))}
+#' @return \code{log(likelihood(spectrum | expected.counts))}, or,
+#' in more detail,
+#' the sum of the negative binomial likelihoods
+#' that each each element of the
+#' spectrum (i.e., the count for each mutation type e.g. ACT > AAT)
+#' was generated from the expected count for that mutation type.
+#'  
 #' 
 #' @importFrom stats dnbinom
 #'

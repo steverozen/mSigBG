@@ -4,25 +4,36 @@
 \alias{MakeBackgroundInfo}
 \title{Estimate a background signature and its characteristics.}
 \usage{
-MakeBackgroundInfo(bg.spectra, title = "Background.sig")
+MakeBackgroundInfo(
+  bg.spectra,
+  title = "Background.sig",
+  sig.nbinom.size = 10,
+  count.nbinom.size = 10
+)
 }
 \arguments{
 \item{bg.spectra}{The spectra from which to compute the background information.}
 
 \item{title}{The name of the single column of the signature in the
 \code{background.sig} element of the output.}
+
+\item{sig.nbinom.size}{The negative binomial \code{size} dispersion parameter for the
+background signature profile. See \code{\link[stats]{NegBinomial}}.
+Smaller is more dispersed.}
+
+\item{count.nbinom.size}{The negative binomial \code{size} dispersion parameter for the
+numbers of mutations caused by the background signature
+(i.e. \code{count.nbinom.mu}).
+See \code{\link[stats]{NegBinomial}}.
+Smaller is more dispersed.}
 }
 \value{
 A list with the elements \describe{
 \item{\code{background.sig}}{The background signatures as a
 single-column \code{\link[ICAMS]{ICAMS}} catalog.}
-\item{\code{sig.nbinom.size}}{The negative binomial \code{size} dispersion parameter for the
-background signature profile. See \code{\link[stats]{NegBinomial}}.}
+\item{\code{sig.nbinom.size}}{See input argument \code{sig.nbinom.size}.}
 \item{\code{count.nbinom.mu}}{The mean of the numbers of mutations in \code{bg.spectra}.}
-\item{\code{count.nbinom.size}}{The negative binomial \code{size} dispersion parameter for the
-numbers of mutations caused by the background signature
-(i.e. \code{count.nbinom.mu}).
-See \code{\link[stats]{NegBinomial}}.}
+\item{\code{count.nbinom.size}}{See input argument \code{count.nbinom.size}.}
 \item{\code{input.spectra}}{The \code{bg.spectra} used to estimate the background.}
 }
 }

@@ -3,15 +3,15 @@
 \docType{data}
 \name{example.spectra}
 \alias{example.spectra}
-\title{Example spectra of cell lines exposed to cisplatin}
+\title{Example spectra of cell lines exposed to cisplatin.}
 \format{
-A list of \code{\link[ICAMS]{ICAMS}} \code{counts} spectra catalog.
+A list of \code{\link[ICAMS]{ICAMS}} \code{counts} spectra catalogs.
 }
 \usage{
 example.spectra
 }
 \description{
-Example spectra of cell lines exposed to cisplatin
+Example spectra of cell lines exposed to cisplatin.
 }
 \examples{
 rowSums(example.spectra[["MCF10A.cisplatin"]])[1:3]

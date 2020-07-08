@@ -5,7 +5,7 @@
 \alias{background.spectra}
 \alias{HepG2.background.spectra}
 \alias{MCF10A.background.spectra}
-\title{Background spectra for HepG2 and MCF-10A}
+\title{Background spectra for the HepG2 and MCF-10A cell lines.}
 \format{
 An \code{\link[ICAMS]{ICAMS}} \code{counts} catalog.
 
@@ -17,8 +17,6 @@ HepG2.background.spectra
 MCF10A.background.spectra
 }
 \description{
-Background spectra for HepG2 and MCF-10A
-
-Background spectra for MCF-10A cells
+Background spectra for the HepG2 and MCF-10A cell lines.
 }
 \keyword{datasets}
