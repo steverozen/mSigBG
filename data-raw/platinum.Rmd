@@ -24,8 +24,26 @@ three platinum-based chemotherapies.
 
 
 ```{r, libraries, echo=TRUE, message=FALSE}
-library(mSigBG)
+# CRAN packages
+library(ICAMS)
+require(philentropy)
+require(factoextra)
+require(gplots)
+require(nloptr)
+
+# Bioconductor
 library(BSgenome.Hsapiens.1000genomes.hs37d5)
+# If not available,
+# install.packages("BiocManager")
+# BiocManager::install("BSgenome.Hsapiens.1000genomes.hs37d5")
+
+# Other
+library(mSigBG)
+# if not available
+# remotes::install_github("steverozen/mSigBG", ref = "1.0-branch")
+library(PCAWG7)
+# if not available
+# remotes::install_github("steverozen/PCAWG7")
 ```
 
 
