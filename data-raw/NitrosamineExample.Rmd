@@ -175,7 +175,7 @@ add.arrows <- function(bp, tops, bottoms) {
       length = 0.025    # width of arrow heads
     ))
   # Try this to get rid of the warnings:
-  assign("last.warning", NULL, envir = baseenv())
+  # assign("last.warning", NULL, envir = baseenv())
   
 }
 
