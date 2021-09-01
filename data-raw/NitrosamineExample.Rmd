@@ -45,7 +45,7 @@ library(ICAMS)
 in.ranges <- list(NDEA = 1:3,
                   NDMA = 4:6,
                   NPIP = 7:9,
-                  NPYR = 7:8)
+                  NPYR = 10:11)
 ```
 
 ```{r, util_func, echo=params$verbose}
@@ -99,6 +99,15 @@ pcat <- function(catalog) {
 ```
 
 ```{r, define_stacked_pcat, echo=params$verbose}
+# @param bg.catalog A matrix-like object in which each column is
+#   represents one sample and each row is a mutation type, e.g.
+#   CAG -> CTG. The counts in each cell are the number of mutations
+#   due the background mutational signature. In the future, 
+#   rewrite this so this parameter is called "partial.spectra.1"
+#
+# @param target.catalog A matrix-like object with the same
+# dimensions as bg.catalog ***** rename to "partial.spectra.2"
+
 stacked.pcat <- function(bg.catalog, target.catalog, set.neg.zero = TRUE) {
   
   set.initial.par(bg.catalog)
@@ -211,6 +220,7 @@ ret <-
     bg.sig.info = bg.info,
     m.opts      = NULL,
     start.b.fraction = 0.5)
+```
 
 ```{r}
 ret$all.opt.ret$message
@@ -425,7 +435,7 @@ retval <- mSigAct::SignaturePresenceTest(
   spectra          = spectra,
   sigs             = two.sigs,
   target.sig.index = 1,
-  eval_f           = mSigAct::ObjFnBinomMaxLHNoRoundOK,
+  # eval_f           = mSigAct::ObjFnBinomMaxLHNoRoundOK,
   m.opts           = m.opts)
 ```
 
@@ -444,7 +454,7 @@ retval <- mSigAct::SignaturePresenceTest(
   spectra          = spectra,
   sigs             = two.sigs,
   target.sig.index = 2,
-  eval_f           = mSigAct::ObjFnBinomMaxLHNoRoundOK,
+  # eval_f           = mSigAct::ObjFnBinomMaxLHNoRoundOK,
   m.opts           = m.opts)
 ```
 
