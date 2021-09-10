@@ -79,7 +79,12 @@ test_g_ineq <- function(est.target.sig.and.b, # Parameters to optimize
 #' be the (to-be-estimated) target signature due to an exposure.
 #' 
 #' We want to maximize \eqn{\Pi^iP(s^i|b^i,t)P(b^i)} over 
-#' \eqn{b^1, b^2,\dots} and \eqn{t}.  (Note that the code
+#' \eqn{b^1, b^2,\dots} and \eqn{t}. 
+#' In other words, we use numerical optimization to
+#' try out different values of \eqn{b^1, b^2,\dots} and \eqn{t}
+#' that maximizes the above product, which is the likelihood
+#' of the observed spectra given \eqn{b^1, b^2,\dots} and \eqn{t}.
+#' (Note that the code
 #' actually minimizes the additive inverse of this.)
 #' 
 #' \eqn{P(b^i)} is estimated from the distribution of previously observed
