@@ -15,7 +15,7 @@ num.muts <-
 
 # Partial spectrum with multinomial noise
 
-pg.partial.spect <- rmultinom(1, num.muts, h2$background.sig)
+bg.partial.spect <- rmultinom(1, num.muts, h2$background.sig)
 
 # 2 Generate partial spectrum for SBS22 (AA)
 
@@ -36,3 +36,6 @@ target.sd   <- sd(target.exp)
 syn.target.num.muts <- 2000 # rnorm(1, mean = target.mean, sd = target.sd)
 
 target.partial.spect <- rmultinom(1, syn.target.num.muts, target.sig)
+
+
+syn.spectrum <- bg.partial.spect + target.partial.spect
