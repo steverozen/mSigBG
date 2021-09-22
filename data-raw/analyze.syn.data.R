@@ -1,5 +1,6 @@
 library(tidyr)
 library(lsa)
+library(ggplot2)
 library(ggsignif)
 
 data.dir <- file.path('data-raw')
@@ -73,14 +74,13 @@ p <- ggplot(data = forscatterplot) +
   geom_point(mapping = aes(x=names,y=count,color=source),stat="identity")+
   scale_color_manual(values = c(infer.target.SBS22 = '#3399FF', infer.bg.HepG2= '#FF9999', 
                                 assigned.target.SBS22 = '#009999', assigned.bg.HepG2 = '#CC0000'))+
-  #stat_compare_means(comparisons = my_comparisons)+
-  #stat_compare_means(label.y = 50)+
   ggtitle(title)+
   theme_bw()+
   theme(plot.title = element_text(hjust = 0.5))
 ggsave(plot = p, filename = paste0(title, '.jpg'))
 p
 
+#draw box plot
 forscatterplot$source <- factor(forscatterplot$source, levels=
                                   c('assigned.bg.HepG2', 'infer.bg.HepG2',
                                     'assigned.target.SBS22', 'infer.target.SBS22'))
@@ -94,9 +94,10 @@ p2 <- ggplot(data = forscatterplot,mapping = aes(x=source, y=count,fill = source
                                assigned.target.SBS22 = '#009999', assigned.bg.HepG2 = '#CC0000'))
 ggsave(plot = p2, filename = paste0(title, 'box.jpg'))
 p2
+
 #cosine distance between target signatures
-cosine.dis.target <- lsa::cosine(inferred.sig[,1],target.sig[,1])
-cosine.dis.bg <- lsa::cosine(bg$background.sig[,1], 
+cosine.dis.target <- cosine(inferred.sig[,1],target.sig[,1])
+cosine.dis.bg <- cosine(bg$background.sig[,1], 
                              mSigBG::MeanOfSpectraAsSig(inferred.bg.spectra)$mean.sig[,1])
 
 print(as.data.frame(x =c(cosine.dis.bg,cosine.dis.target),row.names=c('bg', 'target'),col.names = 'cosine distance'))
