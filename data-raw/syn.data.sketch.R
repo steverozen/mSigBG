@@ -60,7 +60,7 @@ for(i in 1:5){
   attr(target.partial.spectrum.w.noise, "catalog.type") <- "counts"
   attr(syn.spec,'catalog.type') <- 'counts'
   plotlist <- cbind(plotlist, 
-                    bg.partial.spectrum.w.noise,target.partial.spectrum.w.noise,syn.spec)
+                    bg.partial.spectrum.w.noise, target.partial.spectrum.w.noise, syn.spec)
   output.syn.spec <- cbind(output.syn.spec, syn.spec)
   
 }
@@ -85,7 +85,7 @@ inferred.sig <-
 #draw inferred target signature spectrum
 colnames(inferred.sig) <- paste0("Inferred-", target, "-sig")
 two.sigs <- cbind(inferred.sig, h2$background.sig)
-ICAMS::PlotCatalogToPdf(two.sigs,file='test.pdf')
+ICAMS::PlotCatalogToPdf(two.sigs,file='inferred_sig.pdf')
 
 #draw inferred bg and target counted spectrum
 inferred.bg.spectra <- 
@@ -102,7 +102,7 @@ colnames(inferred.target.spectra) <- paste0(sub('.*([1-9]).*','cl\\1',colnames(o
 ICAMS::PlotCatalogToPdf(cbind(inferred.bg.spectra,inferred.target.spectra),file = 'inferred_count.pdf')
 
 #draw scatter plots for count diff between inferred num of muts and ideal num of muts
-inferred.muts <- cbind(ret$exposures.to.target.sig,ret$exposures.to.bg.sig,diff.muts,diff.muts)
+inferred.muts <- cbind(ret$exposures.to.target.sig, ret$exposures.to.bg.sig, diff.muts, diff.muts)
 colnames(inferred.muts) <- c('infer.target','infer.bg','assigned.target','assigned.bg')
 inferred.muts <- data.frame(names = sub('.*([1-9]).*','cl\\1',rownames(inferred.muts)),inferred.muts)
 rownames(inferred.muts) <- NULL;inferred.muts
@@ -123,8 +123,8 @@ p <- ggplot(data = forscatterplot) +
 p
 
 #cosine distance between target signatures
-cosine.dis.target <- lsa::cosine(inferred.sig[,1],target.sig[,1])
-philentropy::cosine_dist(inferred.sig[,1], target.sig[,1],testNA=FALSE)
+#cosine.dis.target <- lsa::cosine(inferred.sig[,1],target.sig[,1])
+cosine.dis.target <- philentropy::cosine_dist(inferred.sig[,1], target.sig[,1],testNA=FALSE)
 cosine.dis.bg <- philentropy::cosine_dist(h2$background.sig[,1], 
                              mSigBG::MeanOfSpectraAsSig(inferred.bg.spectra)[,1],testNA = FALSE)
 
