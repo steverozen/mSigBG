@@ -69,7 +69,7 @@ generate.syn.spec <- function(num, ratio=1, target, bg){
   }
   ICAMS::PlotCatalogToPdf(plotlist[,-1],file=paste0('specs_for_', num,'cls_for_', ratio, target, '_in_', name.of.bg,'.pdf'))
   
-  return(list(output.syn.spec, diff.muts.in.bg, diff.muts.in.target))
+  return(list(output.syn.spec, diff.muts.in.bg, diff.muts.in.target, target.sig))
 }
 
 #output: pdf of catalogs for different cell lines;

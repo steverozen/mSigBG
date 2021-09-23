@@ -6,18 +6,19 @@ library(ggsignif)
 data.dir <- file.path('data-raw')
 source(paste0(data.dir,'/syn.data.function.R'))
 
+#input
 #target: 'SBSXX' form
 #bg: 'mSigBG::background.info$HepG2', spectra form
 #ratio: num of target muts/num of muts in bg, must be <= 1, default = 1
 #num: number of synthesized cell lines
-target='SBS22'
+target='SBS4'
 bg = mSigBG::background.info$HepG2
-name.of.bg = strsplit(colnames(bg$background.sig), '[.]')[[1]][1]
-ratio = 1
+ratio = 0.5
 num = 10
 
+name.of.bg = strsplit(colnames(bg$background.sig), '[.]')[[1]][1]
 list1 <- generate.syn.spec(num, ratio = ratio, target, bg)
-#output: list(output.syn.spec, diff.muts.in.bg, diff.muts.in.target)
+#output: list(output.syn.spec, diff.muts.in.bg, diff.muts.in.target, target.sig)
 
 ret<- 
   SeparateSignatureFromBackground(
@@ -69,11 +70,14 @@ forscatterplot = inferred.muts[,1:5]%>% #dataframe row to column transformation
                values_to = "count")
 title = paste0('Diff between inferred count and ideal count for ', ratio, target, ' in ', name.of.bg)
 forscatterplot$names <- factor(forscatterplot$names , levels = unique(forscatterplot$names)) #stop ggplot2 from reordering x axis
-my_comparisons <- list(c("assigned.bg.HepG2", "infer.bg.HepG2"), c("assigned.target.SBS22", "infer.target.SBS22"))
+forscatterplot$source <- factor(forscatterplot$source, levels=
+                                  c(paste0("assigned.bg.",name.of.bg), paste0("infer.bg.",name.of.bg),
+                                    paste0("assigned.target.",target), paste0("infer.target.",target)))
+my_comparisons <- list(c(paste0("assigned.bg.",name.of.bg),paste0("infer.bg.",name.of.bg)), 
+                       c(paste0("assigned.target.",target), paste0("infer.target.",target)))
 p <- ggplot(data = forscatterplot) +
   geom_point(mapping = aes(x=names,y=count,color=source),stat="identity")+
-  scale_color_manual(values = c(infer.target.SBS22 = '#3399FF', infer.bg.HepG2= '#FF9999', 
-                                assigned.target.SBS22 = '#009999', assigned.bg.HepG2 = '#CC0000'))+
+  scale_color_manual(values = c('#CC0000','#FF9999','#009999','#3399FF'))+
   ggtitle(title)+
   theme_bw()+
   theme(plot.title = element_text(hjust = 0.5))
@@ -82,21 +86,20 @@ p
 
 #draw box plot
 forscatterplot$source <- factor(forscatterplot$source, levels=
-                                  c('assigned.bg.HepG2', 'infer.bg.HepG2',
-                                    'assigned.target.SBS22', 'infer.target.SBS22'))
+                                  c(paste0("assigned.bg.",name.of.bg), paste0("infer.bg.",name.of.bg),
+                                    paste0("assigned.target.",target), paste0("infer.target.",target)))
 p2 <- ggplot(data = forscatterplot,mapping = aes(x=source, y=count,fill = source)) +
   geom_boxplot()+
   geom_point()+
   geom_signif(comparisons = my_comparisons)+
   ggtitle(title)+
   theme_bw()+
-  scale_fill_manual(values = c(infer.target.SBS22 = '#3399FF', infer.bg.HepG2= '#FF9999', 
-                               assigned.target.SBS22 = '#009999', assigned.bg.HepG2 = '#CC0000'))
+  scale_fill_manual(values = c('#CC0000','#FF9999','#009999','#3399FF'))
 ggsave(plot = p2, filename = paste0(title, 'box.jpg'))
 p2
 
 #cosine distance between target signatures
-cosine.dis.target <- cosine(inferred.sig[,1],target.sig[,1])
+cosine.dis.target <- cosine(inferred.sig[,1],list1[[4]][,1])
 cosine.dis.bg <- cosine(bg$background.sig[,1], 
                              mSigBG::MeanOfSpectraAsSig(inferred.bg.spectra)$mean.sig[,1])
 
