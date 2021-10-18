@@ -4,7 +4,7 @@ set.seed(101010, kind = "L'Ecuyer-CMRG")
 
 #target: 'SBSXX' form
 #bg: 'mSigBG::background.info$HepG2', spectra form
-#ratio: num of target muts/num of muts in bg, must be <= 1, default = 1
+#ratio: num of target muts/num of muts in bg
 #num: number of synthesized cell lines
 
 generate.syn.spec <- function(num, ratio=1, target, bg){
@@ -38,6 +38,7 @@ generate.syn.spec <- function(num, ratio=1, target, bg){
     colnames(ideal.bg.spec) <- paste0(name.of.bg,'.cl',i)
     colnames(ideal.target.spec) <- paste0(target,'.cl',i)
     colnames(ideal.syn.spec) <- paste0("ideal.combined",'.cl',i)
+    print(attr(ideal.syn.spec, "abundance"))
     plotlist <- cbind(plotlist, 
                       ideal.bg.spec,ideal.target.spec,ideal.syn.spec)
     

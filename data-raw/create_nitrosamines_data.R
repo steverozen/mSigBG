@@ -35,16 +35,14 @@ sbs.cat.37 <- ICAMS::VCFsToCatalogs(files= chr37_files,
                                     variant.caller = 'strelka', 
                                     ref.genome = BSgenome.Hsapiens.1000genomes.hs37d5,
                                     region = 'genome',
-                                    names.of.VCFs = names37,
-                                    output.file = file.path(data.dir, 'check'));
+                                    names.of.VCFs = names37);
 
  
 sbs.cat.38 <- ICAMS::VCFsToCatalogs(files= chr38_files,
                                     variant.caller = 'strelka', 
                                     ref.genome = BSgenome.Hsapiens.UCSC.hg38,
                                     region = 'genome',
-                                    names.of.VCFs = names38,
-                                    output.file = file.path(data.dir, 'check'))
+                                    names.of.VCFs = names38)
 
 nitrosamines <- cbind(sbs.cat.37$catSBS96,sbs.cat.38$catSBS96)
 

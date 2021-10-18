@@ -2,6 +2,7 @@ library(tidyr)
 library(lsa)
 library(ggplot2)
 library(ggsignif)
+library(dplyr)
 
 data.dir <- file.path('data-raw')
 source(paste0(data.dir,'/syn.data.function.R'))
@@ -9,11 +10,11 @@ source(paste0(data.dir,'/syn.data.function.R'))
 #input
 #target: 'SBSXX' form
 #bg: 'mSigBG::background.info$HepG2', spectra form
-#ratio: num of target muts/num of muts in bg, must be <= 1, default = 1
+#ratio: num of target muts/num of muts in bg
 #num: number of synthesized cell lines
-target='SBS4'
+target='SBS22'
 bg = mSigBG::background.info$HepG2
-ratio = 0.5
+ratio = 2
 num = 10
 
 name.of.bg = strsplit(colnames(bg$background.sig), '[.]')[[1]][1]
@@ -39,7 +40,7 @@ inferred.sig <-
 #draw inferred target signature spectrum
 colnames(inferred.sig) <- paste0("Inferred-", target, "-sig")
 two.sigs <- cbind(inferred.sig, bg$background.sig)
-ICAMS::PlotCatalogToPdf(two.sigs,file=paste0('inferred.',ratio, target, '.sig.in.',name.of.bg, '.pdf'))
+ICAMS::PlotCatalogToPdf(two.sigs,file=paste0('MN_','inferred.',ratio, target, '.sig.in.',name.of.bg, '.pdf'))
 
 #draw inferred bg and target counted spectrum
 inferred.bg.spectra <- 
@@ -47,13 +48,8 @@ inferred.bg.spectra <-
 inferred.bg.spectra <- ICAMS::as.catalog(inferred.bg.spectra,
                                          catalog.type   = "counts",
                                          region         = "genome",
-                                         abundance = attr(ideal.syn.spec, "abundance"),
+                                         abundance = attr(bg$background.sig, "abundance"),
                                          infer.rownames = TRUE)
-colnames(inferred.bg.spectra) <- paste0(name.of.bg, '.', sub('.*([1-9][0-9]?).*','cl\\1',colnames(list1[[1]][,-1])), "-inf-bg-spect")
-
-inferred.target.spectra <- ideal.syn.spec[,rep(1,time = num)] - inferred.bg.spectra
-colnames(inferred.target.spectra) <- paste0(name.of.bg,'.', sub('.*([1-9][0-9]?).*','cl\\1',colnames(list1[[1]][,-1])), "-inf-target-spect")
-ICAMS::PlotCatalogToPdf(cbind(inferred.bg.spectra,inferred.target.spectra),file = paste0(name.of.bg, '_inferred_count_with_', ratio, target,'.pdf'))
 
 #draw scatter plots for count diff between inferred num of muts and ideal num of muts
 inferred.muts <- cbind(ret$exposures.to.target.sig, ret$exposures.to.bg.sig, list1[[3]], list1[[2]])
@@ -64,10 +60,18 @@ rownames(inferred.muts) <- NULL;inferred.muts
 inferred.muts$sum.inferred <- rowSums(cbind(inferred.muts$infer.target, inferred.muts$infer.bg))
 inferred.muts$sum.ideal <- rowSums(cbind(inferred.muts$assigned.target, inferred.muts$assigned.bg))
 
-forscatterplot = inferred.muts[,1:5]%>% #dataframe row to column transformation
+forscatterplot = inferred.muts[,1:5] %>% #dataframe row to column transformation
   pivot_longer(cols = !1,
                names_to = "source",
-               values_to = "count")
+               values_to = "count") %>%
+  mutate(group = case_when(
+    grepl('target',source) & grepl('cl',names) ~ sub('.*([1-9][0-9]?).*','cl\\1.target',names),
+    grepl('bg',source) & grepl('cl',names)~ sub('.*([1-9][0-9]?).*','cl\\1.bg',names)
+  ))
+df_sbs96.pca <- mutate(df_sbs96.pca,
+                       cell_category = case_when(
+                         startsWith(names,'HepG2') ~ 'HepG2',
+                         startsWith(names,'MCF10A') ~ 'MCF10A'))
 title = paste0('Diff between inferred count and ideal count for ', ratio, target, ' in ', name.of.bg)
 forscatterplot$names <- factor(forscatterplot$names , levels = unique(forscatterplot$names)) #stop ggplot2 from reordering x axis
 forscatterplot$source <- factor(forscatterplot$source, levels=
@@ -81,21 +85,20 @@ p <- ggplot(data = forscatterplot) +
   ggtitle(title)+
   theme_bw()+
   theme(plot.title = element_text(hjust = 0.5))
-ggsave(plot = p, filename = paste0(title, '.jpg'))
+ggsave(plot = p, filename = paste0('MN_',title, '.jpg'))
 p
 
 #draw box plot
-forscatterplot$source <- factor(forscatterplot$source, levels=
-                                  c(paste0("assigned.bg.",name.of.bg), paste0("infer.bg.",name.of.bg),
-                                    paste0("assigned.target.",target), paste0("infer.target.",target)))
 p2 <- ggplot(data = forscatterplot,mapping = aes(x=source, y=count,fill = source)) +
   geom_boxplot()+
   geom_point()+
-  geom_signif(comparisons = my_comparisons)+
+  geom_line(aes(group=group))+
   ggtitle(title)+
   theme_bw()+
-  scale_fill_manual(values = c('#CC0000','#FF9999','#009999','#3399FF'))
-ggsave(plot = p2, filename = paste0(title, 'box.jpg'))
+  theme(plot.title = element_text(hjust = 0.5))+
+  scale_fill_manual(values = c('#CC0000','#FF9999','#009999','#3399FF'))+
+  theme(legend.position = "none")
+ggsave(plot = p2, filename = paste0('MN_',title, 'box.jpg'))
 p2
 
 #cosine distance between target signatures
@@ -103,4 +106,5 @@ cosine.dis.target <- cosine(inferred.sig[,1],list1[[4]][,1])
 cosine.dis.bg <- cosine(bg$background.sig[,1], 
                              mSigBG::MeanOfSpectraAsSig(inferred.bg.spectra)$mean.sig[,1])
 
-print(as.data.frame(x =c(cosine.dis.bg,cosine.dis.target),row.names=c('bg', 'target'),col.names = 'cosine distance'))
+print(as.data.frame(x =c(cosine.dis.bg,cosine.dis.target),
+                    row.names=c('bg', 'target'),col.names = c('cosine distance')))
