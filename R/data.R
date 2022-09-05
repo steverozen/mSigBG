@@ -67,4 +67,6 @@
 #'  nitrosamines, "NDEA", "NDMA", "NPIP", "NPYR". The
 #'  samples names also should be self-explanatory.
 #'
+#' @name nitrosamine.examples
+#'
 "nitrosamine.examples"

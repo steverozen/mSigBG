@@ -51,7 +51,7 @@ in.ranges <- list(NDEA = 1:3,
 ```{r, util_func, echo=params$verbose}
 
 spectra <- # The input spectra for one nitrosamine
-  mSigBG::nitrosamine.examples$catSBS96[ , in.ranges[[params$whichnitro]]]
+  nitrosamine.examples$catSBS96[ , in.ranges[[params$whichnitro]]]
 
 set.initial.par <- function(catalog) {
   par(pin = c(3*ncol(catalog), 1))
