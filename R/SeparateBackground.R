@@ -164,8 +164,9 @@ SeparateSignatureFromBackground <-
       
       eval_g_ineq = test_g_ineq,
       
+      # lower bound
       lb          = rep(0, length(est.target.sig.and.b.x0)),
-      
+      # upper bound
       ub          = c(upper.bounds.of.target.sig, 
                       
                       colSums(spectra) # The contribution of the background
@@ -176,20 +177,37 @@ SeparateSignatureFromBackground <-
       obs.spectra = spectra,     
       bg.sig.info = bg.sig.info)
     
+    # solution 
     soln <- ret$solution
     
+    # total mutation count of intrinsic mutations
     bg.exposure <- soln[(1 + nrow(spectra)):length(soln)]
+    
+    # total mutation count
     obs.counts  <- colSums(spectra)
   
+    # inferred signature 
     sig.to.return <- soln[1:nrow(spectra)]
+    
     sum.sig <- sum(sig.to.return)
     is.one <- all.equal(1, sum.sig, tolerance = 1e-5)
     if (is.character(is.one)) {
       message("Sum of elements in inferred signature is not 1; ", is.one)
     }
     # sum.sig is probably not quite equal to 1
-    sig.to.return <- sig.to.return / sum.sig    
-    return(list(inferred.target.sig     = sig.to.return,
+    # normalization, make sum =1
+    sig.to.return <- sig.to.return / sum.sig 
+    
+    # There 2 things we can do:
+    
+    # 1. obs.spectra - (bg.exposure * the background signature) =
+    # We can use observed total spectra minus the bg spectra to get the "partial spectra" due to the target exposure
+    
+    
+    # 2. We can multiply (obs.counts - bg.exposure) * sig.to.return and
+    # get a different estimate of the partial spectra due to the target
+    # exposure. 
+     return(list(inferred.target.sig     = sig.to.return,
                 exposures.to.target.sig = obs.counts - bg.exposure,
                 exposures.to.bg.sig     = bg.exposure,
                 message                 = ret$message,
