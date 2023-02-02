@@ -1,0 +1,471 @@
+---
+title: "Platinum_Exploration_XY"
+author: "Xinyi"
+date: '2022-12-31'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Preparation
+
+### prepare packages 
+```{r, libraries, echo=TRUE, message=FALSE}
+# CRAN packages
+library(ICAMS)
+require(philentropy)
+require(factoextra)
+require(gplots)
+require(nloptr)
+
+# Bioconductor
+library(BSgenome.Hsapiens.1000genomes.hs37d5)
+# If not available,
+# install.packages("BiocManager")
+# BiocManager::install("BSgenome.Hsapiens.1000genomes.hs37d5")
+
+# Other
+library(mSigBG)
+# if not available
+# install.packages("remotes")
+# remotes::install_github("steverozen/mSigBG", ref = "1.0-branch")
+library(PCAWG7)
+# if not available
+# remotes::install_github("steverozen/PCAWG7")
+```
+
+### Read Input data 
+```{r}
+setwd("/home/e0261891/project_folder/mSigBG/data-raw")
+load("spectra/HepG2_and_MCF10A_Cis.spectra.Rdata")
+```
+
+```{r, read_catalogs}
+hepg2.car  <- ICAMS::ReadCatalog("spectra/HepG2_Car.csv", 
+                                 ref.genome = BSgenome.Hsapiens.1000genomes.hs37d5,
+                                 region = "genome",
+                                 catalog.type = "counts")
+
+hepg2.oxa  <- ICAMS::ReadCatalog("spectra/HepG2_Oxa.csv", 
+                                 ref.genome = BSgenome.Hsapiens.1000genomes.hs37d5,
+                                 region = "genome",
+                                 catalog.type = "counts")
+
+mcf10a.car <- ICAMS::ReadCatalog("spectra/MCF10A_Car.csv", 
+                                 ref.genome = BSgenome.Hsapiens.1000genomes.hs37d5,
+                                 region = "genome",
+                                 catalog.type = "counts")
+
+```
+
+```{r, signture.lists}
+hepg2.exposures <- list(hepg2.cis, hepg2.car, hepg2.oxa)
+names(hepg2.exposures) <-
+  c("HepG2.cis.sig", "HepG2.car.sig", "HepG2.oxa.sig")
+
+mcf10a.exposures <- list(mcf10a.cis, mcf10a.car)
+names(mcf10a.exposures) <- c("MCF10A.cis.sig", "MCF10.car.sig")
+```
+
+### Catalog Plotting Functions
+```{r}
+#{r, define_pcat1, echo=params$verbose}
+# Plot a single catalog
+pcat1 <- function(catalog, ylim = NULL) {
+  par(pin = c(5, 1))
+  par(mar = c(5, 4, 5, 4))
+  par(cex = 0.8)
+  par(cex.main = 1.4)
+  bp <- ICAMS::PlotCatalog(catalog[ , 1, drop = FALSE],
+                           upper   = TRUE,
+                           xlabels = TRUE,
+                           ylim    = ylim
+                           )
+  return(invisible(bp$plot.object))
+}
+```
+
+```{r}
+#{r, define_pcat, echo=params$verbose}
+pcat <- function(catalog) {
+  par(pin = c(3*ncol(catalog), 1))
+  par(mfrow = c(ncol(catalog), 1))
+  par(mar = c(2, 4, 4, 2))
+  par(cex = 0.8)
+  par(cex.main = 1.4) 
+  xlabels <- FALSE
+  for (i in 1:ncol(catalog)) {
+    if (FALSE && i == ncol(catalog)) { # FALSE an experiment
+      xlabels <- TRUE
+      par(mar = c(4.5, 4, 3, 2))
+    }
+    
+    ICAMS::PlotCatalog(catalog[ , i, drop = FALSE],
+                       upper = (i == 1),
+                       xlabels = xlabels)
+  }
+}
+```
+
+### Background separation function: Separate the background and target signatures
+
+```{r, separate.hepg2}
+one.separation <- function(sig.name, sig.list, bg.sig.info, my.seed = 101010) {
+  
+  set.seed(my.seed, kind = "L'Ecuyer-CMRG")
+  
+  spectra <- sig.list[[sig.name]]
+  
+  if (is.null(attr(spectra, "abundance"))) {
+    stop("NULL abundance for ", sig.name)
+  }
+  
+  ret <- SeparateSignatureAndSpectra(
+    spectra          = spectra,
+    bg.sig.info      = bg.sig.info,
+    m.opts           = NULL,
+    start.b.fraction = 0.5,
+    sig.name         = sig.name
+  )
+
+  return(ret)
+}
+```
+
+### Perform BG sep for both cell lines
+```{r}
+if (!file.exists("all.separated.Rdata")) {
+  hepg2.separated <- lapply(X           = names(hepg2.exposures),
+                            FUN         = one.separation,
+                            sig.list    = hepg2.exposures,
+                            bg.sig.info = background.info[["HepG2"]])
+  names(hepg2.separated) <- names(hepg2.exposures)
+}
+if (!file.exists("all.separated.Rdata")) {
+  mcf10a.separated <- lapply(X           = names(mcf10a.exposures),
+                             FUN         = one.separation,
+                             sig.list    = mcf10a.exposures,
+                             bg.sig.info = background.info[["MCF10A"]])
+  names(mcf10a.separated) <- names(mcf10a.exposures)
+  
+  all.separated <- c(hepg2.separated, mcf10a.separated)
+  save(all.separated, file = "all.separated.Rdata")
+} else {
+  load("all.separated.Rdata")
+}
+
+# output of BG Sep for both cell lines: all.separated
+```
+
+### Cosine similarity and Cosine similarity of subcolor function 
+```{r, cossim}
+cossim <- function(v1, v2) {
+  if (!is.null(ncol(v1)))  {
+    stopifnot(ncol(v1) == 1)
+    v1 <- v1[ , 1]
+  }
+  if (!is.null(ncol(v2)))  {
+    stopifnot(ncol(v2) == 1)
+    v2 <- v2[ , 1]
+  }
+  lsa::cosine(v1, v2)
+}
+```
+
+```{r}
+# A function to obtain cosine similarity between all subcolor of two input spectra/signature
+# the corresponding column of spectra 1 and spectra 2 are the vectors to compare
+
+subcolor.cossim <- function(spectra1, spectra2){
+  if(exists("all.subcolor.cossim"))  rm("all.subcolor.cossim", envir = sys.frames)
+  
+  
+  subcolor.names <- c("C>A","C>G","C>T","T>A","T>C","T>G")
+  for (i in 1:ncol(spectra1)){
+    if (exists("this.subcolor.cossim")) rm("this.subcolor.cossim")
+    
+    for (j in 1:6){
+      start.index <- (j-1)*16+1
+      this.cossim <- cossim(spectra1[start.index:(start.index+15),i,drop=FALSE], spectra2[start.index:(start.index+15),i,drop=FALSE])
+      colnames(this.cossim) <- paste(colnames(spectra1)[i], "&", colnames(spectra2)[i])
+      rownames(this.cossim) <- subcolor.names[j]
+      if(!exists("this.subcolor.cossim")){
+        this.subcolor.cossim <- this.cossim
+      }
+      else {
+        this.subcolor.cossim <- rbind(this.subcolor.cossim,this.cossim)
+      }
+    }
+    
+    if(!exists("all.subcolor.cossim")){
+      all.subcolor.cossim <- this.subcolor.cossim
+    }
+    else {
+      all.subcolor.cossim <- cbind(all.subcolor.cossim,this.subcolor.cossim)
+    }
+  }
+  
+  rm("this.subcolor.cossim")
+  return(all.subcolor.cossim)
+}
+
+```
+
+
+### Read catalog
+
+```{r, read.catalogs}
+hepg2.car  <- ICAMS::ReadCatalog("spectra/HepG2_Car.csv", 
+                                 ref.genome = BSgenome.Hsapiens.1000genomes.hs37d5,
+                                 region = "genome",
+                                 catalog.type = "counts")
+
+hepg2.oxa  <- ICAMS::ReadCatalog("spectra/HepG2_Oxa.csv", 
+                                 ref.genome = BSgenome.Hsapiens.1000genomes.hs37d5,
+                                 region = "genome",
+                                 catalog.type = "counts")
+
+mcf10a.car <- ICAMS::ReadCatalog("spectra/MCF10A_Car.csv", 
+                                 ref.genome = BSgenome.Hsapiens.1000genomes.hs37d5,
+                                 region = "genome",
+                                 catalog.type = "counts")
+
+```
+
+# Exploration
+## Two Ways of getting Inferred spectra from all.separated 
+
+### Method 1: obs.spectra - (bg.exposure * the background signature) 
+```{r}
+# Spectra of each sample (matrix)
+all.spectra <- do.call(cbind, c(hepg2.exposures, mcf10a.exposures))
+
+# Spectra of each sample (list)
+all.obs.spectra <- c(hepg2.exposures, mcf10a.exposures)
+
+# No. of mutation due to bg in each sample
+all.bg.exposure <- lapply(all.separated, 
+       function(x) { 
+         bg.exposures <- x$exposures.to.bg.sig
+         names <- colnames(x$inferred.bg.spectra)
+         names(bg.exposures) <- sub("-inf.bg.spect", "", names, fixed = TRUE)
+         return(bg.exposures)
+       })
+
+#unlist(c(all.bg.exposure))
+
+all.bg.spectra <-lapply(all.separated, 
+       function(x) { 
+         bg.sig <- x$inferred.bg.spectra
+         names <- colnames(x$inferred.bg.spectra)
+         colnames(bg.sig) <- sub("-inf.bg.spect", "", names, fixed = TRUE)
+         return(bg.sig)
+       })
+
+
+all.bg.sig <- lapply(all.bg.spectra,function(x){
+                  for (i in 1:ncol(x)){
+                      temp <- (x[,i]/colSums(x)[i])
+                      x[,i] <- temp
+                  } 
+                  return(x)
+              })
+
+rm("bg.spectra")
+for (x in names(all.bg.exposure)){
+  for (i in names(all.bg.exposure[[x]])){
+    # this multiplication is problematic: all.bg.sig$x[,i] is a count signature 
+    this.bg.spectra <- all.bg.exposure[[x]][i] * all.bg.sig[[x]][,i, drop=FALSE]
+    if (!exists("bg.spectra")){
+       bg.spectra <- this.bg.spectra
+    }
+    else{
+      bg.spectra <- cbind(bg.spectra, this.bg.spectra)
+    }
+  }
+}  
+
+all.inferred.target.spectra.method1 <- all.spectra - bg.spectra
+
+# transform the inferred spectra into catalog 
+# plot the catalog 
+# later on calculate cosine similarity with the other method
+
+
+```
+
+
+### Method 2: (obs.counts - bg.exposure) * sig.to.return 
+```{r}
+# Spectra of each sample (matrix)
+all.spectra <- do.call(cbind, c(hepg2.exposures, mcf10a.exposures))
+# No.of total mutation observed in each sample
+all.obs.counts <- as.matrix(colSums(all.spectra))
+
+# Spectra of each sample (list)
+all.obs.spectra <- c(hepg2.exposures, mcf10a.exposures)
+# No.of total mutation observed in each sample
+all.obs.counts <- lapply(all.obs.spectra, colSums)
+
+
+# No. of mutation due to bg in each sample
+all.bg.exposure <- lapply(all.separated, 
+       function(x) { 
+         bg.exposures <- x$exposures.to.bg.sig
+         names <- colnames(x$inferred.bg.spectra)
+         names(bg.exposures) <- sub("-inf.bg.spect", "", names, fixed = TRUE)
+         return(bg.exposures)
+       })
+
+
+
+# front part of the multiplication
+# all.obs.counts - unlist(all.bg.exposure)
+
+all.target.sig <-lapply(all.separated, 
+       function(x) { 
+         target.sig <- x$inferred.target.sig.as.catalog
+         return(target.sig)
+       })
+names(all.target.sig)<-names(all.separated)
+
+rm("inferred.target.spectra.method2")
+for (i in names(all.separated)){
+  for (j in 1:length(all.bg.exposure[[i]])){
+    inferred.target.count <- all.obs.counts[[i]][j] - all.bg.exposure[[i]][j]
+    temp.inferred.spectra <- inferred.target.count %*% all.target.sig[[i]][,1]
+    #Error in all.target.sig[[i]][, j] : subscript out of bounds
+    temp.inferred.spectra <- t(temp.inferred.spectra)
+    colnames(temp.inferred.spectra) <- names(inferred.target.count)
+    
+    if(!exists("inferred.target.spectra.method2")){
+      inferred.target.spectra.method2 <- temp.inferred.spectra
+    }else{
+      inferred.target.spectra.method2 <- cbind(inferred.target.spectra.method2,temp.inferred.spectra)
+    }
+  }
+}
+
+all.inferred.target.spectra.method2 <- inferred.target.spectra.method2
+```
+
+## Question 1: Are the Cis-platinum and Carbo-platinum target signatures the same for HepG2 and MCF10A?
+
+
+```{r}
+colnames(all.inferred.target.spectra.method1)
+
+all.inferred.target.spectra.method1.cl <- all.inferred.target.spectra.method1
+tmp.names <- colnames(all.inferred.target.spectra.method1.cl)
+colnames(all.inferred.target.spectra.method1.cl) <- sub("HepG2.cis.sig.|HepG2.car.sig.|MCF10A.cis.sig.|MCF10.car.sig.", "", tmp.names)
+
+HepG2_Cis <- all.inferred.target.spectra.method1.cl[,1:4, drop = FALSE] # 4
+HepG2_Car <- all.inferred.target.spectra.method1.cl[,5:6, drop = FALSE] # 2
+MCF10A_Cis <- all.inferred.target.spectra.method1.cl[,10:15, drop = FALSE] # 6
+MCF10A_Car <- all.inferred.target.spectra.method1.cl[,16:19, drop = FALSE] # 4
+
+```
+
+```{r,fig.height=4, fig.width=7}
+pcat(cbind(all.inferred.target.spectra.method1.cl[,1, drop = FALSE],all.inferred.target.spectra.method1.cl[,10, drop = FALSE]))
+```
+
+```{r}
+subcolor.cossim(cbind(HepG2_Cis,HepG2_Cis,HepG2_Cis), cbind(MCF10A_Cis,MCF10A_Cis))
+```
+
+```{r,fig.height=4, fig.width=7}
+pcat(cbind(HepG2_Car[,1,drop=FALSE],MCF10A_Car[,1, drop = FALSE]))
+```
+
+```{r}
+subcolor.cossim(cbind(HepG2_Car,HepG2_Car), MCF10A_Cis)
+```
+
+## Question 2: What are the background signatures of HepG2 and MCF10A? Does Cis-platinum or Carbo-platinum enhanced some of the intrinsic signature 
+## Question 2': What is the cosine similarity between the background and the target signature for both Cis and Car in both cellines?
+
+#### Background signatures, for refrence
+```{r, plot bg sig, fig.height=4, fig.width=7} 
+
+pcat(cbind(mSigBG::background.info[["HepG2"]]$background.sig, mSigBG::background.info[["MCF10A"]]$background.sig))
+
+```
+
+## Qustion2 for Cis-platinum: 
+### Question 2.1 Are the target sig similar enough in the two cell lines?
+```{r,fig.height=4, fig.width=7}
+# Plot the target signature of CIS-PLATINUM in both cell line 
+pcat(cbind(all.target.sig$HepG2.cis.sig,all.target.sig$MCF10A.cis.sig))
+
+```
+```{r}
+cossim(all.target.sig$HepG2.cis.sig,all.target.sig$MCF10A.cis.sig)
+```
+
+```{r}
+subcolor.cossim(all.target.sig$HepG2.cis.sig,all.target.sig$MCF10A.cis.sig)
+```
+
+
+### Question2.2: cosine similarity between subcolor of background and target (see if part of target is from intrinsic mutations)
+
+```{r,fig.height=4, fig.width=7}
+# Plot the target signature of CIS-PLATINUM in both cell line 
+pcat(cbind(mSigBG::background.info[["HepG2"]]$background.sig,all.target.sig$HepG2.cis.sig))
+
+```
+
+```{r}
+subcolor.cossim(all.target.sig$HepG2.cis.sig,mSigBG::background.info[["HepG2"]]$background.sig)
+```
+```{r, fig.height=4,fig.width=7}
+pcat(cbind(mSigBG::background.info[["MCF10A"]]$background.sig,all.target.sig$MCF10A.cis.sig))
+```
+
+```{r}
+subcolor.cossim(all.target.sig$MCF10A.cis.sig,mSigBG::background.info[["MCF10A"]]$background.sig)
+```
+
+## End of Qustion2 for Cis-platinum
+
+
+## Question2 for carbo-platinum
+### Question 2.1 Are the target sig similar enough in the two cell lines?
+```{r,fig.height=4, fig.width=7}
+# Plot the target signature of CARBO_PLATINUM in both cell line 
+pcat(cbind(all.target.sig$HepG2.car.sig,all.target.sig$MCF10.car.sig))
+```
+
+```{r}
+cossim(all.target.sig$HepG2.car.sig,all.target.sig$MCF10.car.sig)
+```
+
+```{r}
+subcolor.cossim(all.target.sig$HepG2.car.sig,all.target.sig$MCF10.car.sig)
+```
+
+
+### Question2.2: cosine similarity between subcolor of background and target (see if part of target is from intrinsic mutations)
+
+```{r, fig.height =6, fig.width=7}
+#all.target.sig$MCF10.car.sig
+pcat(cbind(mSigBG::background.info[["HepG2"]]$background.sig,all.target.sig$HepG2.car.sig))
+```
+```{r}
+subcolor.cossim(mSigBG::background.info[["HepG2"]]$background.sig,all.target.sig$HepG2.car.sig)
+```
+
+```{r, fig.height =6, fig.width=7}
+pcat(cbind(mSigBG::background.info[["MCF10A"]]$background.sig,all.target.sig$MCF10.car.sig))
+```
+
+```{r}
+subcolor.cossim(mSigBG::background.info[["MCF10A"]]$background.sig,all.target.sig$MCF10.car.sig)
+```
+
+## End of Qustion2 for Carbo-platinum
+
+

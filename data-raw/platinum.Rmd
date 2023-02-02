@@ -40,6 +40,7 @@ library(BSgenome.Hsapiens.1000genomes.hs37d5)
 # Other
 library(mSigBG)
 # if not available
+# install.packages("remotes")
 # remotes::install_github("steverozen/mSigBG", ref = "1.0-branch")
 library(PCAWG7)
 # if not available
