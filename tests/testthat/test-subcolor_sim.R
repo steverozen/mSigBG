@@ -4,6 +4,14 @@ test_that("subcolor_sim", {
   retval <- subcolor_sim(tmp[ , 1, drop = FALSE],
                          tmp[ , 2, drop = FALSE])
   
-  testthat::expect_equal(retval, background.info[["MCF10A"]])
+  testthat::expect_equal(
+    retval, 
+                         c("C>A" = 0.993039146389516,
+                           "C>G" = 0.988993496603531,
+                           "C>T" = 0.999088643094178,
+                           "T>A" = 0.997937136924211,
+                           "T>C" = 0.981165079520172,
+                           "T>G" = 0.97535717152383 ))
   
 })
+
