@@ -5,10 +5,6 @@ date: "2023-02-03"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -32,7 +28,8 @@ library(nloptr)
 # BiocManager::install("BSgenome.Hsapiens.1000genomes.hs37d5")
 
 # Other
-library(mSigBG)
+devtools::load_all(".")
+# library(mSigBG)
 # if not available
 # install.packages("remotes")
 # remotes::install_github("steverozen/mSigBG", ref = "1.0-branch")
@@ -130,14 +127,20 @@ colnames(mcf10a.cis)<- sub(".vcf", "", colnames(mcf10a.cis), fixed = TRUE)
 ```{r}
 # Are the inferred target signatures by method 1 similar across the 4 hepg2 spectra?
 
-hepg2.cis.sep <- one.separation("hepg2.cis", hepg2.cis, background.info[["HepG2"]])
-
-
+if (!file.exists("hepg2.cis.sep.Rdata")) {
+  hepg2.cis.sep <- one.separation("hepg2.cis", hepg2.cis, background.info[["HepG2"]])
+  save(hepg2.cis.sep, file = "hepg2.cis.sep.Rdata")
+} else {
+  load("hepg2.cis.sep.Rdata")
+}
 
 # Are the inferred target signatures by method 1 similar across the 4 mcfa1 spectra?
-
-mcf10a.cis.sep <- one.separation("mcf10a.cis", mcf10a.cis, background.info[["HepG2"]])
-
+if (!file.exists("mcf10a.cis.sep.Rdata")) {
+  mcf10a.cis.sep <- one.separation("mcf10a.cis", mcf10a.cis, background.info[["HepG2"]])
+  save(mcf10a.cis.sep, file = "mcf10a.cis.sep.Rdata")
+} else {
+  load("mcf10a.cis.sep.Rdata")
+}
 
 # If the 2 quesions above are true, then look at overall cossim between 
 # the inferred target signatures of hepg2 and mcf10a as a whole and by
@@ -155,7 +158,7 @@ target_sig_M1 <- function(obs.spectra, spectra.sep) {
   bg.spectra <- spectra.sep$inferred.bg.spectra
   bg.sig <- spectra.sep$inferred.bg.spectra/colSums(bg.spectra)
   
-  target.spectra <- obs.spectra[,1, drop=FALSE]  - bg.exposure[1] * bg.sig[, i, drop=FALSE]
+  target.spectra <- obs.spectra[,1, drop=FALSE]  - bg.exposure[1] * bg.sig[, 1, drop=FALSE]
   if(length(bg.exposure)>1){
     for (i in 2:length(bg.exposure)){
       target.spectra <- cbind(target.spectra, obs.spectra[,i, drop=FALSE]  - bg.exposure[i] * bg.sig[, i, drop=FALSE])
@@ -174,6 +177,7 @@ target_sig_M1 <- function(obs.spectra, spectra.sep) {
 ```{r}
 target.spectra <- target_sig_M1(hepg2.cis, hepg2.cis.sep)
 target.sig.method1 <- target.spectra/colSums(target.spectra)
+ts.hepg2.cis <- target.spectra
 ```
 
 ```{r}
@@ -181,7 +185,7 @@ target.sig.method1 <- target.spectra/colSums(target.spectra)
 ```
 
 
-```{r,fig.height=5, fig.width=7}
+```{r,fig.height=8, fig.width=7}
 pcat(target.spectra)
 ```
 
@@ -205,8 +209,8 @@ target.spectra <- target_sig_M1(mcf10a.cis, mcf10a.cis.sep)
 target.sig.method1 <- target.spectra/colSums(target.spectra)
 ```
 
-```{r,fig.height=8, fig.width=7}
-pcat(target.spectra)
+```{r,fig.height=16, fig.width=7}
+pcat(cbind(ts.hepg2.cis, target.spectra))
 ```
 
 ```{r, fig.height=5, fig.width=5}
@@ -236,8 +240,8 @@ target_sig_M2 <- function(obs.spectra, spectra.sep){
   inferred.target.count <- sum(obs.spectra[,1]) - bg.exposures[1]
   target.spec.method2 <- inferred.target.count * target.sig
   
-  if(length(bg.exposure>1)){
-    for (j in 2:length(bg.exposure)){
+  if(length(bg.exposures>1)){
+    for (j in 2:length(bg.exposures)){
       inferred.target.count <- sum(obs.spectra[,j]) - bg.exposures[j]
       temp.inferred.spectra <- inferred.target.count * target.sig
       target.spec.method2 <- cbind(target.spec.method2,temp.inferred.spectra)
@@ -259,17 +263,24 @@ mcf10a.cis.target.spec.M2 <- target_sig_M2(mcf10a.cis, mcf10a.cis.sep)
 ```{r}
 # when comparing the target spectra of the two cell line (each cell line has multiple clones), the cosine similarity dropped
 # my guess: cosine similarity calculated this way took into account the variation in #mutation-by-target-sig across the different clones
-philentropy::cosine_dist(hepg2.cis.target.spec.M2,mcf10a.cis.target.spec.M2, testNA = TRUE)
+# philentropy::cosine_dist(hepg2.cis.target.spec.M2,mcf10a.cis.target.spec.M2, testNA = TRUE)
 ```
 
 Are the target signature similar in the two cell line?
 ```{r}
 # when comparing the target signature of the two cell line --> the similarity is higher
-philentropy::cosine_dist(hepg2.cis.sep$inferred.target.sig.as.catalog, mcf10a.cis.sep$inferred.target.sig.as.catalog, testNA = TRUE)
+philentropy::cosine_dist(hepg2.cis.sep$inferred.target.sig.as.catalog,
+                         mcf10a.cis.sep$inferred.target.sig.as.catalog, testNA = TRUE)
+```
+
+```{r}
+subcolor_sim(hepg2.cis.sep$inferred.target.sig.as.catalog,
+             mcf10a.cis.sep$inferred.target.sig.as.catalog)
 ```
 
 ```{r, fig.height=3, fig.width=7}
-pcat(cbind(hepg2.cis.sep$inferred.target.sig.as.catalog,mcf10a.cis.sep$inferred.target.sig.as.catalog))
+pcat(cbind(hepg2.cis.sep$inferred.target.sig.as.catalog,
+           mcf10a.cis.sep$inferred.target.sig.as.catalog))
 ```
 Background Signature of the two cell line
 ```{r, fig.height=3, fig.width=7}
