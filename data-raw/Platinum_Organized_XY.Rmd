@@ -114,6 +114,8 @@ mcf10a.cis <- mSigBG::example.spectra$MCF10A.cisplatin
 
 ```
 
+
+# Maybe this block is not needed 
 ```{r, signture.lists}
 hepg2.exposures <- list(HepG2.cis.sig = hepg2.cis, HepG2.car.sig = hepg2.car, HepG2.oxa.sig = hepg2.oxa)
 
@@ -135,7 +137,7 @@ mcf10a.cis.sep <- one.separation("mcf10a.cis", mcf10a.cis, background.info[["Hep
 
 # Are the inferred target signatures by method 1 similar across the 4 mcfa1 spectra?
 
-# If the 2 quesions above are true, then look at overal cossim between 
+# If the 2 quesions above are true, then look at overall cossim between 
 # the inferred target signatures of hepg2 and mcf10a as a whole and by
 # subcolor_sim.
 
@@ -166,6 +168,7 @@ if (!file.exists("all.separated.Rdata")) {
 ## Two Ways of getting Inferred spectra from all.separated 
 
 ### Method 1: obs.spectra - (bg.exposure * the background signature) 
+target spectra obtained by subtraction the background 
 ```{r}
 # Spectra of each sample (matrix)
 all.spectra <- do.call(cbind, c(hepg2.exposures, mcf10a.exposures))
@@ -226,6 +229,7 @@ all.inferred.target.spectra.method1 <- all.spectra - bg.spectra
 
 
 ### Method 2: (obs.counts - bg.exposure) * sig.to.return 
+Same target signature, # of mutation caused by taget signature is clone dependent 
 ```{r}
 # Spectra of each sample (matrix)
 all.spectra <- do.call(cbind, c(hepg2.exposures, mcf10a.exposures))
@@ -278,6 +282,7 @@ for (i in names(all.separated)){
 
 all.inferred.target.spectra.method2 <- inferred.target.spectra.method2
 ```
+
 
 ## Question 1: Are the Cis-platinum and Carbo-platinum target signatures the same for HepG2 and MCF10A?
 

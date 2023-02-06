@@ -1,8 +1,8 @@
-# A function to obtain cosine similarity between all subcolor of two input spectra/signature
-# The two input spectra should be a one-dimentional vector 
-
 subcolor_sim <- function(spectra1, spectra2){
-
+  
+  # A function to obtain cosine similarity between all subcolor of two input spectra/signature
+  # The two input spectra should be a one-dimentional vector 
+  
   all.subcolor.cossim <- c()
   
   for (j in seq(from = 1, to = 96, by = 16)){
