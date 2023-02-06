@@ -262,10 +262,12 @@ mcf10a.cis.target.spec.M2 <- target_sig_M2(mcf10a.cis, mcf10a.cis.sep)
 philentropy::cosine_dist(hepg2.cis.target.spec.M2,mcf10a.cis.target.spec.M2, testNA = TRUE)
 ```
 
+Are the target signature similar in the two cell line?
 ```{r}
 # when comparing the target signature of the two cell line --> the similarity is higher
 philentropy::cosine_dist(hepg2.cis.sep$inferred.target.sig.as.catalog, mcf10a.cis.sep$inferred.target.sig.as.catalog, testNA = TRUE)
 ```
+
 ```{r, fig.height=3, fig.width=7}
 pcat(cbind(hepg2.cis.sep$inferred.target.sig.as.catalog,mcf10a.cis.sep$inferred.target.sig.as.catalog))
 ```
@@ -273,6 +275,9 @@ Background Signature of the two cell line
 ```{r, fig.height=3, fig.width=7}
 pcat(cbind(mSigBG::background.info[["HepG2"]]$background.sig, mSigBG::background.info[["MCF10A"]]$background.sig))
 ```
+
+Could the target signature contains an enhanced intrinsic signature?
+cosine similarity between subcolor of background and target
 ```{r}
 subcolor_sim(mSigBG::background.info[["HepG2"]]$background.sig,hepg2.cis.sep$inferred.target.sig.as.catalog)
 ```
