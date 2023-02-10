@@ -33,7 +33,7 @@ devtools::load_all(".")
 # if not available
 # install.packages("remotes")
 # remotes::install_github("steverozen/mSigBG", ref = "1.0-branch")
-library(PCAWG7)
+# library(PCAWG7)
 # if not available
 # remotes::install_github("steverozen/PCAWG7")
 ```
@@ -145,7 +145,49 @@ if (!file.exists("mcf10a.cis.sep.Rdata")) {
 # If the 2 quesions above are true, then look at overall cossim between 
 # the inferred target signatures of hepg2 and mcf10a as a whole and by
 # subcolor_sim.
+
 ```
+
+# test
+```{r}
+spectra <- hepg2.cis
+bg.sig.info <- background.info[["HepG2"]]
+
+sig0 <- MeanOfSpectraAsSig(spectra)$mean.sig
+b.x0 <- 0.1 * colSums(spectra)
+est.target.sig.and.b.x0 <- c(sig0, b.x0)
+upper.bounds.of.target.sig <- rep(1, nrow(spectra))
+m.opts <- SeparateSignatureFromBackgroundOptions()
+
+ret.lop <- nloptr::nloptr(
+      x0          = est.target.sig.and.b.x0,
+      
+      eval_f      = ObjFn1,
+      
+      eval_g_ineq = test_g_ineq,
+      
+      # lower bound
+      lb          = rep(0, length(est.target.sig.and.b.x0)), # length of sig + 1
+      # upper bound
+      ub          = c(upper.bounds.of.target.sig, # each mut type frequency <= 1
+                      
+                      colSums(spectra) # The contribution of the background
+                                       # should not exceed the total count
+                                       # of the spectrum
+                      ),
+      opt = m.opts,
+      obs.spectra = spectra,     
+      bg.sig.info = bg.sig.info)
+```
+
+```{r}
+length(ret.lop$solution[1:nrow(spectra)])
+
+
+length(ret.lop$solution[(1 + nrow(spectra)):length(ret.lop$solution)])
+```
+
+
 
 # Exploration
 ## Two Ways of getting Inferred spectra 
@@ -180,14 +222,11 @@ target.sig.method1 <- target.spectra/colSums(target.spectra)
 ts.hepg2.cis <- target.spectra
 ```
 
-```{r}
-
-```
-
 
 ```{r,fig.height=8, fig.width=7}
 pcat(target.spectra)
 ```
+
 
 ```{r, fig.height=5, fig.width=5}
 cosine.sim <- suppressMessages(
@@ -205,12 +244,8 @@ gplots::heatmap.2(x = cosine.sim,
 
 ##### MCF10A-Cisplatinum
 ```{r}
-target.spectra <- target_sig_M1(mcf10a.cis, mcf10a.cis.sep)
-target.sig.method1 <- target.spectra/colSums(target.spectra)
-```
-
-```{r,fig.height=16, fig.width=7}
-pcat(cbind(ts.hepg2.cis, target.spectra))
+ts.mcf10a.cis <- target_sig_M1(mcf10a.cis, mcf10a.cis.sep)
+target.sig.method1 <- ts.mcf10a.cis/colSums(ts.mcf10a.cis)
 ```
 
 ```{r, fig.height=5, fig.width=5}
@@ -226,6 +261,34 @@ gplots::heatmap.2(x = cosine.sim,
                   symm = TRUE,
                   trace = "none")
 ```
+
+##### Pairwise subcolor comparison
+```{r,fig.height=16, fig.width=7}
+pcat(cbind(ts.hepg2.cis, ts.mcf10a.cis))
+# ts: target spectra
+```
+
+```{r}
+colnames <- c()
+pw.subsim = matrix(data=NA, nrow=6, ncol=0)
+x=1
+for (i in 1:(ncol(ts.hepg2.cis)-1)){
+  for (j in (i+1):ncol(ts.hepg2.cis)){
+    tmp.subsim <- subcolor_sim(ts.hepg2.cis[,i,drop=FALSE],ts.hepg2.cis[,j,drop=FALSE])[["by.color"]]
+    colnames <- c(colnames, paste(colnames(ts.hepg2.cis)[i], colnames(ts.hepg2.cis)[j], sep=" VS "))
+    pw.subsim <- cbind(pw.subsim, tmp.subsim)
+  }
+}
+colnames(pw.subsim) <- colnames
+rownames(pw.subsim) <- names(tmp.subsim)
+```
+
+```{r}
+ggplot2::aes(pw.subsim,)
+ggplot(data = yearly_counts, aes(x = year, y = n, color = genus)) +
+    geom_line()
+```
+
 
 ### Method 2: (obs.counts - bg.exposure) * sig.to.return 
 Inferred spectra obtained from inferred target signature multiply # of target mutations (observed -bg) 
