@@ -165,9 +165,9 @@ SeparateSignatureFromBackground <-
       eval_g_ineq = test_g_ineq,
       
       # lower bound
-      lb          = rep(0, length(est.target.sig.and.b.x0)),
+      lb          = rep(0, length(est.target.sig.and.b.x0)), # length of sig + 1
       # upper bound
-      ub          = c(upper.bounds.of.target.sig, 
+      ub          = c(upper.bounds.of.target.sig, # each mut type frequency <= 1
                       
                       colSums(spectra) # The contribution of the background
                                        # should not exceed the total count
