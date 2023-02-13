@@ -219,25 +219,25 @@ target_sig_M2 <- function(obs.spectra, spectra.sep){
 ```
 
 ### Testing whether the old and new data looks similar 
-```{r}
+```{r, eval=FALSE}
 hepg2.cis.test37 <- ICAMS::StrelkaSBSVCFFilesToCatalog(
     files      = "/home/e0261891/project_folder/mSigBG/data-raw/cisplatin-vcfs/HepG2_Cis//HepG2_Cis_cl1.vcf",
     ref.genome = BSgenome.Hsapiens.1000genomes.hs37d5,
     region     = "genome")$catSBS192
 ```
 
-```{r, fig.height= 2, fig.width= 7}
+```{r, eval=FALSE, fig.height= 2, fig.width= 7}
 pcat(hepg2.cis.spec[,1,drop=FALSE])
 ```
 
-```{r, fig.height= 2, fig.width= 7}
+```{r, eval=FALSE, fig.height= 2, fig.width= 7}
 pcat(hepg2.cis.test37)
 ```
-```{r}
+```{r, eval=FALSE}
 setequal(hepg2.cis.spec[,1,drop=FALSE],hepg2.cis.test37)
 ```
 
-```{r}
+```{r, eval=FALSE}
 philentropy::cosine_dist(hepg2.cis.spec[,1,drop=FALSE],hepg2.cis.test37, testNA = TRUE)
 ```
 
@@ -256,6 +256,8 @@ if (!file.exists("../data/hepg2.ctrl.spec.Rdata")){
 }else{
   load("../data/hepg2.ctrl.spec.Rdata")
 }
+
+pcat(hepg2.ctrl.spec)
 ```
 
 ```{r}
@@ -274,6 +276,8 @@ if (!file.exists("../data/mcf10a.ctrl.spec.Rdata")){
 }else{
   load("../data/mcf10a.ctrl.spec.Rdata")
 }
+
+pcat(mcf10a.ctrl.spec)
 ```
 
 ```{r}
@@ -345,7 +349,6 @@ pw.subsim
 
 
 ```{r}
-
 matplot(pw.subsim, type = "b",pch=1, col = 1:21, xlab = "1.C>A   2.C>G   3.C>T   4.T>A   5.T>C   6.T>G")
 legend("bottomright", legend = colnames(pw.subsim), col=1:21, pch=1, cex = 0.8)
 ```
