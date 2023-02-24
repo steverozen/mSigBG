@@ -1,0 +1,370 @@
+---
+title: "Jill's data: Our method VS Jill's method"
+author: "Xinyi"
+date: "2023-02-24"
+output: html_document
+---
+
+# Load packages
+```{r}
+library(ICAMS)
+library(philentropy)
+library(factoextra)
+library(gplots)
+library(nloptr)
+devtools::load_all(".")
+```
+
+
+# Functions for this File 
+```{r}
+pcat <- function(catalog) {
+  par(pin = c(3*ncol(catalog), 1))
+  par(mfrow = c(ncol(catalog), 1))
+  par(mar = c(2, 4, 4, 2))
+  par(cex = 0.8)
+  par(cex.main = 1.4) 
+  xlabels <- FALSE
+  for (i in 1:ncol(catalog)) {
+    if (FALSE && i == ncol(catalog)) { # FALSE an experiment
+      xlabels <- TRUE
+      par(mar = c(4.5, 4, 3, 2))
+    }
+    
+    ICAMS::PlotCatalog(catalog[ , i, drop = FALSE],
+                       upper = (i == 1),
+                       xlabels = xlabels)
+  }
+}
+```
+
+```{r}
+convert_base <- function(x){
+  if (x == "A")
+    ret <- "T"
+  else if (x == "C")
+    ret <- "G"
+  else if (x == "G")
+    ret <- "C"
+  else if (x == "T")
+    ret <- "A"
+  else{
+    message("Incorrent input")
+    ret <- 0
+  }
+    
+  return(ret)
+}
+```
+
+```{r}
+Jill_to_SBS96 <- function(input_table){
+  subs <- input_table[,c("pre_context","Ref","rear_context","Alt")]
+  for (i in 1:nrow(input_table)){
+    if (subs[i,2] == "A" | subs[i,2] =="G"){
+      tmp1 <- convert_base(subs[i,1])
+      tmp2 <- convert_base(subs[i,2])
+      tmp3 <- convert_base(subs[i,3])
+      tmp4 <- convert_base(subs[i,4])
+      subs[i,1] <- tmp3
+      subs[i,2] <- tmp2
+      subs[i,3] <- tmp1
+      subs[i,4] <- tmp4
+    }
+  }
+  subs.pasted <- apply(subs, MARGIN = 1, function(x){paste0(x[1], x[2], x[3], x[4])})
+  SBS96.template <- c("ACAA", "ACCA", "ACGA", "ACTA", "CCAA", "CCCA", "CCGA", "CCTA", 
+                      "GCAA", "GCCA", "GCGA", "GCTA", "TCAA", "TCCA", "TCGA", "TCTA", 
+                      "ACAG", "ACCG", "ACGG", "ACTG", "CCAG", "CCCG", "CCGG", "CCTG", 
+                      "GCAG", "GCCG", "GCGG", "GCTG", "TCAG", "TCCG", "TCGG", "TCTG",
+                      "ACAT", "ACCT", "ACGT", "ACTT", "CCAT", "CCCT", "CCGT", "CCTT", 
+                      "GCAT", "GCCT", "GCGT", "GCTT", "TCAT", "TCCT", "TCGT", "TCTT", 
+                      "ATAA", "ATCA", "ATGA", "ATTA", "CTAA", "CTCA", "CTGA", "CTTA", 
+                      "GTAA", "GTCA", "GTGA", "GTTA", "TTAA", "TTCA", "TTGA", "TTTA", 
+                      "ATAC", "ATCC", "ATGC", "ATTC", "CTAC", "CTCC", "CTGC", "CTTC", 
+                      "GTAC", "GTCC", "GTGC", "GTTC", "TTAC", "TTCC", "TTGC", "TTTC", 
+                      "ATAG", "ATCG", "ATGG", "ATTG", "CTAG", "CTCG", "CTGG", "CTTG", 
+                      "GTAG", "GTCG", "GTGG", "GTTG", "TTAG", "TTCG", "TTGG", "TTTG") 
+  subs.spectra <- rep(0,96)
+  names(subs.spectra) <- SBS96.template
+  
+  # count occurrence 
+  for (i in subs.pasted){
+    subs.spectra[i] <- subs.spectra[i] + 1
+  }
+  
+  subs.cat <- as.catalog(as.matrix(subs.spectra), ref.genome = "GRCh37", region = "genome", catalog.type = "counts" , infer.rownames = TRUE)
+  
+  return(subs.cat)
+}
+```
+
+```{r}
+one.separation <- function(sig.name, spectra, bg.sig.info, my.seed = 101010) {
+  
+  set.seed(my.seed, kind = "L'Ecuyer-CMRG")
+  
+  if (is.null(attr(spectra, "abundance"))) {
+    stop("NULL abundance for ", sig.name)
+  }
+  
+  ret <- SeparateSignatureAndSpectra(
+    spectra          = spectra,
+    bg.sig.info      = bg.sig.info,
+    m.opts           = NULL,
+    start.b.fraction = 0.5,
+    sig.name         = sig.name
+  )
+
+  return(ret)
+}
+```
+#### Two Ways of getting Inferred spectra 
+##### Method 1: obs.spectra - (bg.exposure * the background signature) 
+Inferred spectra obtained from observed spectra minus background spectra 
+```{r}
+target_sig_M1 <- function(obs.spectra, spectra.sep) {
+  bg.exposure <- spectra.sep$exposures.to.bg.sig
+  bg.spectra <- spectra.sep$inferred.bg.spectra
+  bg.sig <- spectra.sep$inferred.bg.spectra/colSums(bg.spectra)
+  
+  target.spectra <- obs.spectra[,1, drop=FALSE]  - bg.exposure[1] * bg.sig[, 1, drop=FALSE]
+  if(length(bg.exposure)>1){
+    for (i in 2:length(bg.exposure)){
+      target.spectra <- cbind(target.spectra, obs.spectra[,i, drop=FALSE]  - bg.exposure[i] * bg.sig[, i, drop=FALSE])
+    }
+  }
+  #target.sig.method1 <- target.spectra/colSums(target.spectra) # convert clonal target spectra to signature 
+  
+  return(target.spectra)
+  #return(target.sig.method1)
+}
+```
+
+##### Method 2: (obs.counts - bg.exposure) * sig.to.return 
+Inferred spectra obtained from inferred target signature multiply # of target mutations (observed -bg) 
+```{r}
+# No. of mutation due to bg in each sample
+target_sig_M2 <- function(obs.spectra, spectra.sep){
+  bg.exposures <- spectra.sep$exposures.to.bg.sig
+  names(bg.exposures) <- sub("-inf.bg.spect", "", colnames(spectra.sep$inferred.bg.spectra), fixed = TRUE)
+  
+  target.sig <-spectra.sep$inferred.target.sig.as.catalog
+  
+  inferred.target.count <- sum(obs.spectra[,1]) - bg.exposures[1]
+  target.spec.method2 <- inferred.target.count * target.sig
+  
+  if(length(bg.exposures>1)){
+    for (j in 2:length(bg.exposures)){
+      inferred.target.count <- sum(obs.spectra[,j]) - bg.exposures[j]
+      temp.inferred.spectra <- inferred.target.count * target.sig
+      target.spec.method2 <- cbind(target.spec.method2,temp.inferred.spectra)
+    }
+  }
+  return(target.spec.method2)
+}
+
+```
+
+# Read Input from Jill Kucab's data
+```{r}
+sig.all <- read.table("Jill_Mutagen53_sub_signature.txt",header = TRUE, sep ="\t")
+
+subs.all <- read.table("Jill_denovo_subclone_subs_final.txt",header = TRUE, sep ="\t")
+```
+
+# Extract the data we need 
+The Controls:
+MSM0.118	DMSO Control (0.5%) + HS9
+MSM0.119	DMSO Control (0.5%) + S9
+MSM0.131	DMSO Control (0.1%) + S9
+MSM0.4	DMSO Control (0.68%)
+MSM0.86	DMSO Control (0.35%) + S9
+MSM0.9	DMSO Control (0.1%)
+MSM0.1	H2O Control (0.1%)
+MSM0.45	H2O Control (0.1%)
+MSM0.8	Media Control
+MSM0.128	Media Control
+MSM0.129	Media Control + S9
+MSM0.120	MeOH Control (1.3%)
+MSM0.127	MeOH Control (4.3%) + S9
+MSM0.6	NaCl Control (0.003%)
+MSM0.37	DMSO Control (0.1%) + S9
+
+```{r}
+all.names <- unique(subs.all["Sample.Name"])
+ctrl.names <- c("MSM0.118","MSM0.119","MSM0.131","MSM0.4",
+                "MSM0.86","MSM0.9","MSM0.1","MSM0.45","MSM0.8",
+                "MSM0.128","MSM0.129","MSM0.120","MSM0.127",
+                "MSM0.6","MSM0.37")
+
+```
+
+
+```{r}
+control.names <- c("MSM0.118", "MSM0.119", "MSM0.131", "MSM0.4", "MSM0.86", "MSM0.9",
+                   "MSM0.1", "MSM0.45", "MSM0.8", "MSM0.128","MSM0.129",
+                   "MSM0.120", "MSM0.127", "MSM0.6", "MSM0.37")	
+```
+
+
+```{r}
+all.controls.scaled <- cbind(DMSO_0.5_HS9/2,DMSO_0.5_S9/2,DMSO_0.1_S9/3,
+                      DMSO_0.68/28, DMSO_0.35_S9/2, DMSO_0.1/28, 
+                      H2O_0.1/115,H2O_0.1_/2,
+                      Media/24, Media_/3, Media_S9/3,
+                      MeOH_1.3/3, MeOH_4.3_S9/2,NaCl_0.003/28,DMSO_0.1_S9_/2)
+```
+
+
+```{r, fig.height=20, fig.width=10}
+pcat(all.controls.scaled)
+```
+
+Generate BG info 
+```{r}
+bg.media <- MakeBackgroundInfo(all.controls)
+```
+
+```{r, fig.height=1.5, fig.width=10}
+pcat(bg.media$background.sig)
+```
+
+
+```{r}
+# Creating a table to map MSM code to sig.name 
+MSM_table <- read.table("MSM_table", header = TRUE, sep = "\t") #, col.names=c("Sample.Name", "Treatment") )
+names <- gsub(" ", ".",MSM_table[,2])
+names <- gsub("\\(", ".",names)
+names <- gsub("\\)", ".",names)
+names <- gsub("\\+", ".",names)
+names <- gsub(",",".",names)
+names <- gsub("-",".",names)
+MSM_table[,2] <- names
+```
+
+```{r}
+# MSM0.11	Temozolomide..200.uM.			
+# MSM0.75	Temozolomide..200.uM.
+# in the MSM table provided, two MSM codes are mapped to the same signature name
+# in Signature names, one is named as Temozolomide..200.uM..1
+# Here we assume that MSM0.75 is named as Temozolomide..200.uM..1
+MSM_table[MSM_table[1]=="MSM0.75",2] <- "Temozolomide..200.uM..1"
+```
+
+
+```{r}
+# REMOVE X IN "X1.8.DNP..0.125.uM." for sig.name column names 
+for (i in 1:length(colnames(sig.all))){
+  if (substring(colnames(sig.all)[i], 1, 1) =="X")
+    colnames(sig.all)[i] <- substring(colnames(sig.all)[i],2)
+}
+```
+
+
+```{r, echo=FALSE}
+# Testing name matching
+haha.names <- c()
+compounds <- all.names[,1]
+for(compound.name in compounds){
+  #print(compound.name)
+  compound.spectra <-matrix(data=NA,nrow=96)
+  compound.key <- paste0(compound.name,"_")
+  compound.samples <- unique(subs.all[grep(compound.key, subs.all[,3]),"Sample" ,])
+  sig.name <- MSM_table[MSM_table$Sample.Name == compound.name, 2]
+  # Check if this current compound has given signature 
+  print(sig.name)
+  if(sig.name %in% colnames(sig.all)){
+    #compound.sep <- one.separation(compound.name, compound.spectra, bg.media)
+    haha.names<- c(haha.names,sig.name)
+  }
+}
+#print(haha.names)
+#print(length(haha.names))
+```
+
+
+```{r, fig.height=2, fig.width=9}
+all.compound.sep <- list()
+all.cosine <- c()
+# compounds <- all.names[,1]
+compounds <- all.names[,1]
+for(compound.name in compounds){
+  compound.spectra <-matrix(data=NA,nrow=96)
+  compound.key <- paste0(compound.name,"_")
+  compound.samples <- unique(subs.all[grep(compound.key, subs.all[,3]),"Sample" ,])
+  for (compound.subtype in compound.samples){
+    # print(compound.subtype)
+    if(is.na(compound.spectra[1]))
+      compound.spectra <- Jill_to_SBS96(subs.all[grep(compound.subtype, subs.all[,3]), ,drop = FALSE])
+    else 
+      compound.spectra <- cbind(compound.spectra, 
+                                Jill_to_SBS96(subs.all[grep(compound.subtype, subs.all[,3]), ,drop = FALSE]))
+  }
+  colnames(compound.spectra)<-compound.samples
+  sig.name <- MSM_table[MSM_table$Sample.Name == compound.name,2]
+  # Check if this current compound has given signature   
+  if(sig.name %in% colnames(sig.all)){
+    compound.sep <- one.separation(compound.name, compound.spectra, bg.media)
+    
+    # store the sep file for furture use 
+    if(length(all.compound.sep)==0){
+      all.compound.sep <- list(compound.sep)
+      names(all.compound.sep) <- sig.name
+    }else{
+      compound.sep.ele <- list(compound.sep)
+      names(compound.sep.ele) <- sig.name
+      all.compound.sep <- append(all.compound.sep, compound.sep.ele)
+    }
+    print(paste(sig.name))
+    pcat(compound.sep$inferred.target.sig.as.catalog)
+    pcat(as.catalog(sig.all[,sig.name, drop = FALSE],catalog.type = "counts.signature", infer.rownames = TRUE))
+    print(philentropy::cosine_dist(compound.sep$inferred.target.sig.as.catalog, 
+                                   as.catalog(sig.all[,sig.name, drop = FALSE],catalog.type = "counts.signature",
+                                              infer.rownames = TRUE), testNA = FALSE))
+    cur.cosine.name <- names(all.cosine)
+    all.cosine <- c(all.cosine,philentropy::cosine_dist(compound.sep$inferred.target.sig.as.catalog, 
+                                as.catalog(sig.all[,sig.name, drop = FALSE],catalog.type = "counts.signature",
+                                           infer.rownames = TRUE), testNA = FALSE))
+    names(all.cosine) <- c(cur.cosine.name, sig.name)
+  }
+}
+save(all.compound.sep,file = "Jill.all.compound.sep.Rdata")
+save(all.cosine,file = "Jill.all.cosine.Rdata")
+```
+
+
+
+```{r, echo=FALSE}
+# Testing the mismatch between Provided signature names and MSM code table
+tmp <- colnames(sig.all)
+for (i in tmp){
+  if (i %in% MSM_table[,2])#print(paste("IN",i))
+    i <- 1
+  else
+    #print(paste("OUT",i))
+}
+```
+
+```{r}
+#compound.sep <- all.compound.sep[1]
+# HOW TO LOOP??
+for (compound.sep in all.compound.sep){
+  sig.name <- names(compound.sep)
+  pcat(compound.sep[1]$inferred.target.sig.as.catalog)
+  pcat(as.catalog(sig.all[,sig.name, drop = FALSE],catalog.type = "counts.signature", infer.rownames = TRUE))
+  print(sig.name)
+  philentropy::cosine_dist(compound.sep$inferred.target.sig.as.catalog, 
+                           as.catalog(sig.all[,sig.name, drop = FALSE],catalog.type = "counts.signature",
+                                      infer.rownames = TRUE), testNA = FALSE)
+}
+```
+
+```{r}
+for(compound.sep in all.compound.sep){
+  
+}
+```
+
+
+

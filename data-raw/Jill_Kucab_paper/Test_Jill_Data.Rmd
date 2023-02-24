@@ -1,0 +1,715 @@
+---
+title: "Testing on Jill Kucab's Data (All Control)"
+author: "Xinyi"
+date: "2023-02-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load packages
+```{r}
+library(ICAMS)
+library(philentropy)
+library(factoextra)
+library(gplots)
+library(nloptr)
+devtools::load_all(".")
+```
+
+
+# Functions for this File 
+```{r}
+pcat <- function(catalog) {
+  par(pin = c(3*ncol(catalog), 1))
+  par(mfrow = c(ncol(catalog), 1))
+  par(mar = c(2, 4, 4, 2))
+  par(cex = 0.8)
+  par(cex.main = 1.4) 
+  xlabels <- FALSE
+  for (i in 1:ncol(catalog)) {
+    if (FALSE && i == ncol(catalog)) { # FALSE an experiment
+      xlabels <- TRUE
+      par(mar = c(4.5, 4, 3, 2))
+    }
+    
+    ICAMS::PlotCatalog(catalog[ , i, drop = FALSE],
+                       upper = (i == 1),
+                       xlabels = xlabels)
+  }
+}
+```
+
+```{r}
+convert_base <- function(x){
+  if (x == "A")
+    ret <- "T"
+  else if (x == "C")
+    ret <- "G"
+  else if (x == "G")
+    ret <- "C"
+  else if (x == "T")
+    ret <- "A"
+  else{
+    message("Incorrent input")
+    ret <- 0
+  }
+    
+  return(ret)
+}
+```
+
+```{r}
+Jill_to_SBS96 <- function(input_table){
+  subs <- input_table[,c("pre_context","Ref","rear_context","Alt")]
+  for (i in 1:nrow(input_table)){
+    if (subs[i,2] == "A" | subs[i,2] =="G"){
+      tmp1 <- convert_base(subs[i,1])
+      tmp2 <- convert_base(subs[i,2])
+      tmp3 <- convert_base(subs[i,3])
+      tmp4 <- convert_base(subs[i,4])
+      subs[i,1] <- tmp3
+      subs[i,2] <- tmp2
+      subs[i,3] <- tmp1
+      subs[i,4] <- tmp4
+    }
+  }
+  subs.pasted <- apply(subs, MARGIN = 1, function(x){paste0(x[1], x[2], x[3], x[4])})
+  SBS96.template <- c("ACAA", "ACCA", "ACGA", "ACTA", "CCAA", "CCCA", "CCGA", "CCTA", 
+                      "GCAA", "GCCA", "GCGA", "GCTA", "TCAA", "TCCA", "TCGA", "TCTA", 
+                      "ACAG", "ACCG", "ACGG", "ACTG", "CCAG", "CCCG", "CCGG", "CCTG", 
+                      "GCAG", "GCCG", "GCGG", "GCTG", "TCAG", "TCCG", "TCGG", "TCTG",
+                      "ACAT", "ACCT", "ACGT", "ACTT", "CCAT", "CCCT", "CCGT", "CCTT", 
+                      "GCAT", "GCCT", "GCGT", "GCTT", "TCAT", "TCCT", "TCGT", "TCTT", 
+                      "ATAA", "ATCA", "ATGA", "ATTA", "CTAA", "CTCA", "CTGA", "CTTA", 
+                      "GTAA", "GTCA", "GTGA", "GTTA", "TTAA", "TTCA", "TTGA", "TTTA", 
+                      "ATAC", "ATCC", "ATGC", "ATTC", "CTAC", "CTCC", "CTGC", "CTTC", 
+                      "GTAC", "GTCC", "GTGC", "GTTC", "TTAC", "TTCC", "TTGC", "TTTC", 
+                      "ATAG", "ATCG", "ATGG", "ATTG", "CTAG", "CTCG", "CTGG", "CTTG", 
+                      "GTAG", "GTCG", "GTGG", "GTTG", "TTAG", "TTCG", "TTGG", "TTTG") 
+  subs.spectra <- rep(0,96)
+  names(subs.spectra) <- SBS96.template
+  
+  # count occurrence 
+  for (i in subs.pasted){
+    subs.spectra[i] <- subs.spectra[i] + 1
+  }
+  
+  subs.cat <- as.catalog(as.matrix(subs.spectra), ref.genome = "GRCh37", region = "genome", catalog.type = "counts" , infer.rownames = TRUE)
+  
+  return(subs.cat)
+}
+```
+
+```{r}
+one.separation <- function(sig.name, spectra, bg.sig.info, my.seed = 101010) {
+  
+  set.seed(my.seed, kind = "L'Ecuyer-CMRG")
+  
+  if (is.null(attr(spectra, "abundance"))) {
+    stop("NULL abundance for ", sig.name)
+  }
+  
+  ret <- SeparateSignatureAndSpectra(
+    spectra          = spectra,
+    bg.sig.info      = bg.sig.info,
+    m.opts           = NULL,
+    start.b.fraction = 0.5,
+    sig.name         = sig.name
+  )
+
+  return(ret)
+}
+```
+#### Two Ways of getting Inferred spectra 
+##### Method 1: obs.spectra - (bg.exposure * the background signature) 
+Inferred spectra obtained from observed spectra minus background spectra 
+```{r}
+target_sig_M1 <- function(obs.spectra, spectra.sep) {
+  bg.exposure <- spectra.sep$exposures.to.bg.sig
+  bg.spectra <- spectra.sep$inferred.bg.spectra
+  bg.sig <- spectra.sep$inferred.bg.spectra/colSums(bg.spectra)
+  
+  target.spectra <- obs.spectra[,1, drop=FALSE]  - bg.exposure[1] * bg.sig[, 1, drop=FALSE]
+  if(length(bg.exposure)>1){
+    for (i in 2:length(bg.exposure)){
+      target.spectra <- cbind(target.spectra, obs.spectra[,i, drop=FALSE]  - bg.exposure[i] * bg.sig[, i, drop=FALSE])
+    }
+  }
+  #target.sig.method1 <- target.spectra/colSums(target.spectra) # convert clonal target spectra to signature 
+  
+  return(target.spectra)
+  #return(target.sig.method1)
+}
+```
+
+##### Method 2: (obs.counts - bg.exposure) * sig.to.return 
+Inferred spectra obtained from inferred target signature multiply # of target mutations (observed -bg) 
+```{r}
+# No. of mutation due to bg in each sample
+target_sig_M2 <- function(obs.spectra, spectra.sep){
+  bg.exposures <- spectra.sep$exposures.to.bg.sig
+  names(bg.exposures) <- sub("-inf.bg.spect", "", colnames(spectra.sep$inferred.bg.spectra), fixed = TRUE)
+  
+  target.sig <-spectra.sep$inferred.target.sig.as.catalog
+  
+  inferred.target.count <- sum(obs.spectra[,1]) - bg.exposures[1]
+  target.spec.method2 <- inferred.target.count * target.sig
+  
+  if(length(bg.exposures>1)){
+    for (j in 2:length(bg.exposures)){
+      inferred.target.count <- sum(obs.spectra[,j]) - bg.exposures[j]
+      temp.inferred.spectra <- inferred.target.count * target.sig
+      target.spec.method2 <- cbind(target.spec.method2,temp.inferred.spectra)
+    }
+  }
+  return(target.spec.method2)
+}
+
+```
+
+# Read Input from Jill Kucab's data
+```{r}
+sig.all <- read.table("Jill_Mutagen53_sub_signature.txt",header = TRUE, sep ="\t")
+
+subs.all <- read.table("Jill_denovo_subclone_subs_final.txt",header = TRUE, sep ="\t")
+```
+
+# Extract the data we need 
+The Controls:
+MSM0.118	DMSO Control (0.5%) + HS9
+MSM0.119	DMSO Control (0.5%) + S9
+MSM0.131	DMSO Control (0.1%) + S9
+MSM0.4	DMSO Control (0.68%)
+MSM0.86	DMSO Control (0.35%) + S9
+MSM0.9	DMSO Control (0.1%)
+MSM0.1	H2O Control (0.1%)
+MSM0.45	H2O Control (0.1%)
+MSM0.8	Media Control
+MSM0.128	Media Control
+MSM0.129	Media Control + S9
+MSM0.120	MeOH Control (1.3%)
+MSM0.127	MeOH Control (4.3%) + S9
+MSM0.6	NaCl Control (0.003%)
+MSM0.37	DMSO Control (0.1%) + S9
+
+
+The Exposures: 
+MSM0.72	Carboplatin (5 uM)
+MSM0.7	Cisplatin (3.125 uM)
+MSM0.83	Cisplatin (12.5 uM)
+
+```{r}
+H2O.1 <- subs.all[grep("MSM0.1_", subs.all[,3]), ,drop = FALSE]
+H2O.2 <- subs.all[grep("MSM0.45_", subs.all[,3]), ,drop = FALSE]
+NaCl <- subs.all[grep("MSM0.6_", subs.all[,3]), ,drop = FALSE]
+Media.1 <- subs.all[grep("MSM0.8_", subs.all[,3]), ,drop = FALSE]
+Media.2 <- subs.all[grep("MSM0.128_", subs.all[,3]), ,drop = FALSE]
+```
+
+```{r, echo=FALSE}
+carb <- subs.all[grep("MSM0.72_", subs.all[,3]), ,drop = FALSE]
+unique(carb[,3])
+
+cis.1 <- subs.all[grep("MSM0.7_", subs.all[,3]), ,drop = FALSE]
+unique(cis.1[,3])
+
+cis.2 <- subs.all[grep("MSM0.83_", subs.all[,3]), ,drop = FALSE]
+unique(cis.2[,3])
+```
+
+# Test Nitrosamine
+```{r, fig.height=2.5, fig.width=10}
+nit <- Jill_to_SBS96(subs.all[grep("MSM0.64", subs.all[,3]), ,drop = FALSE])
+pcat(nit)
+```
+
+
+
+Read the controls
+```{r}
+# Media control
+Media_1.1 <- Jill_to_SBS96(subs.all[grep("MSM0.8_s1", subs.all[,3]), ,drop = FALSE])
+Media_1.2 <- Jill_to_SBS96(subs.all[grep("MSM0.8_s2", subs.all[,3]), ,drop = FALSE])
+Media_2.1 <- Jill_to_SBS96(subs.all[grep("MSM0.128_s2", subs.all[,3]), ,drop = FALSE])
+Media_2.2 <- Jill_to_SBS96(subs.all[grep("MSM0.128_s3", subs.all[,3]), ,drop = FALSE])
+Media_2.3 <- Jill_to_SBS96(subs.all[grep("MSM0.128_s4", subs.all[,3]), ,drop = FALSE])
+
+Media_ctrl <- cbind(Media_1.1, Media_1.2, Media_2.1, Media_2.2, Media_2.3)
+
+# H2O control
+H2O.1.1 <- Jill_to_SBS96(subs.all[grep("MSM0.1_s1", subs.all[,3]), ,drop = FALSE])
+H2O.1.2 <- Jill_to_SBS96(subs.all[grep("MSM0.1_s2", subs.all[,3]), ,drop = FALSE])
+H2O.2.1 <- Jill_to_SBS96(subs.all[grep("MSM0.45_s1", subs.all[,3]), ,drop = FALSE])
+H2O.2.2 <- Jill_to_SBS96(subs.all[grep("MSM0.45_s2", subs.all[,3]), ,drop = FALSE])
+
+H2O_ctrl <- cbind(H2O.1.1, H2O.1.2, H2O.2.1, H2O.2.2)
+
+```
+The Controls:
+MSM0.118	DMSO Control (0.5%) + HS9
+MSM0.119	DMSO Control (0.5%) + S9
+MSM0.131	DMSO Control (0.1%) + S9
+
+MSM0.4	DMSO Control (0.68%)
+MSM0.86	DMSO Control (0.35%) + S9
+MSM0.9	DMSO Control (0.1%)
+
+MSM0.1	H2O Control (0.1%)
+MSM0.45	H2O Control (0.1%)
+
+MSM0.8	Media Control
+MSM0.128	Media Control
+MSM0.129	Media Control + S9
+
+MSM0.120	MeOH Control (1.3%)
+MSM0.127	MeOH Control (4.3%) + S9
+
+MSM0.6	NaCl Control (0.003%)
+MSM0.37	DMSO Control (0.1%) + S9
+```{r}
+DMSO_0.5_HS9 <- Jill_to_SBS96(subs.all[grep("MSM0.118", subs.all[,3]), ,drop = FALSE])
+DMSO_0.5_S9 <- Jill_to_SBS96(subs.all[grep("MSM0.119", subs.all[,3]), ,drop = FALSE])
+DMSO_0.1_S9 <- Jill_to_SBS96(subs.all[grep("MSM0.131", subs.all[,3]), ,drop = FALSE])
+DMSO_0.68 <- Jill_to_SBS96(subs.all[grep("MSM0.4", subs.all[,3]), ,drop = FALSE])
+DMSO_0.35_S9 <- Jill_to_SBS96(subs.all[grep("MSM0.86", subs.all[,3]), ,drop = FALSE])
+DMSO_0.1 <- Jill_to_SBS96(subs.all[grep("MSM0.9", subs.all[,3]), ,drop = FALSE])
+H2O_0.1 <- Jill_to_SBS96(subs.all[grep("MSM0.1", subs.all[,3]), ,drop = FALSE])
+H2O_0.1_ <- Jill_to_SBS96(subs.all[grep("MSM0.45", subs.all[,3]), ,drop = FALSE])
+
+Media <- Jill_to_SBS96(subs.all[grep("MSM0.8", subs.all[,3]), ,drop = FALSE])
+Media_ <- Jill_to_SBS96(subs.all[grep("MSM0.128", subs.all[,3]), ,drop = FALSE])
+Media_S9 <- Jill_to_SBS96(subs.all[grep("MSM0.4", subs.all[,3]), ,drop = FALSE])
+
+MeOH_1.3 <- Jill_to_SBS96(subs.all[grep("MSM0.120", subs.all[,3]), ,drop = FALSE])
+MeOH_4.3_S9 <- Jill_to_SBS96(subs.all[grep("MSM0.127", subs.all[,3]), ,drop = FALSE])
+NaCl_0.003 <- Jill_to_SBS96(subs.all[grep("MSM0.6", subs.all[,3]), ,drop = FALSE])
+DMSO_0.1_S9_ <- Jill_to_SBS96(subs.all[grep("MSM0.37", subs.all[,3]), ,drop = FALSE])
+
+all.controls <- cbind(DMSO_0.5_HS9,DMSO_0.5_S9,DMSO_0.1_S9,
+                      DMSO_0.68, DMSO_0.35_S9, DMSO_0.1, 
+                      H2O_0.1,H2O_0.1_,
+                      Media, Media_, Media_S9,
+                      MeOH_1.3, MeOH_4.3_S9,NaCl_0.003,DMSO_0.1_S9_)
+```
+
+```{r}
+control.names <- c("MSM0.118", "MSM0.119", "MSM0.131", "MSM0.4", "MSM0.86", "MSM0.9",
+                   "MSM0.1", "MSM0.45", "MSM0.8", "MSM0.128","MSM0.129",
+                   "MSM0.120", "MSM0.127", "MSM0.6", "MSM0.37")	
+```
+```{r}
+for (i in control.names)
+  print(dim(unique(subs.all[grep(i, subs.all[,3]), ,drop = FALSE]['Sample']))[1])
+```
+
+```{r}
+all.controls.scaled <- cbind(DMSO_0.5_HS9/2,DMSO_0.5_S9/2,DMSO_0.1_S9/3,
+                      DMSO_0.68/28, DMSO_0.35_S9/2, DMSO_0.1/28, 
+                      H2O_0.1/115,H2O_0.1_/2,
+                      Media/24, Media_/3, Media_S9/3,
+                      MeOH_1.3/3, MeOH_4.3_S9/2,NaCl_0.003/28,DMSO_0.1_S9_/2)
+```
+
+
+```{r, fig.height=20, fig.width=10}
+pcat(all.controls.scaled)
+```
+
+
+```{r}
+# Carboplatin
+carb <- cbind(Jill_to_SBS96(subs.all[grep("MSM0.72_s1", subs.all[,3]), ,drop = FALSE]),
+              Jill_to_SBS96(subs.all[grep("MSM0.72_s2", subs.all[,3]), ,drop = FALSE]),
+              Jill_to_SBS96(subs.all[grep("MSM0.72_s3", subs.all[,3]), ,drop = FALSE]))
+colnames(carb)<- paste0("carboplatin_s", rep(1:3))
+
+# Cisplatin
+cis.less <- cbind(Jill_to_SBS96(subs.all[grep("MSM0.7_s4", subs.all[,3]), ,drop = FALSE]),
+              Jill_to_SBS96(subs.all[grep("MSM0.7_s5", subs.all[,3]), ,drop = FALSE]),
+              Jill_to_SBS96(subs.all[grep("MSM0.7_s6", subs.all[,3]), ,drop = FALSE]))
+cis.more <- cbind(Jill_to_SBS96(subs.all[grep("MSM0.83_s1", subs.all[,3]), ,drop = FALSE]),
+              Jill_to_SBS96(subs.all[grep("MSM0.83_s2", subs.all[,3]), ,drop = FALSE]),
+              Jill_to_SBS96(subs.all[grep("MSM0.83_s3", subs.all[,3]), ,drop = FALSE]))
+
+colnames(cis.less)<- paste0("cisplatin_3.125uM", rep(1:3))
+colnames(cis.more)<- paste0("cisplatin_12.5uM", rep(1:3))
+```
+
+
+Generate BG info 
+```{r}
+bg.media <- MakeBackgroundInfo(all.controls)
+```
+
+```{r, fig.height=1.5, fig.width=10}
+pcat(bg.media$background.sig)
+```
+
+# comparison across controls
+```{r}
+Media_ctrl <- all.controls
+colnames <- c()
+pw.sim = matrix(data=NA, nrow=1, ncol=0)
+for (i in 1:(ncol(Media_ctrl)-1)){
+  for (j in (i+1):ncol(Media_ctrl)){
+    tmp.sim <- philentropy::cosine_dist(Media_ctrl[,i,drop=FALSE],Media_ctrl[,j,drop=FALSE], testNA=TRUE)
+    colnames <- c(colnames, paste(colnames(Media_ctrl)[i],
+                                  colnames(Media_ctrl)[j],
+                                  sep="-"))
+    pw.sim <- cbind(pw.sim, tmp.sim)
+  }
+}
+colnames(pw.sim) <- colnames
+mean(pw.sim)
+```
+
+
+```{r, fig.width=7, fig.height=5}
+pcat(cis.less)
+```
+
+```{r, fig.width=7, fig.height=5}
+pcat(cis.more)
+```
+
+
+```{r, echo = FALSE}
+# if (!file.exists("../data/Jill.car.sep.Rdata")) {
+#   Jill.car.sep <- one.separation("Jill.car", carb, bg.media)
+#   save(Jill.car.sep, file = "../data/Jill.car.sep.Rdata")
+# } else {
+#   load("../data/Jill.car.sep.Rdata")
+# }
+# 
+# if (!file.exists("../data/Jill.cis.sep.Rdata")) {
+#   Jill.cis.sep <- one.separation("Jill.cis", cis, bg.media)
+#   save(Jill.cis.sep, file = "../data/Jill.cis.sep.Rdata")
+# } else {
+#   load("../data/Jill.cis.sep.Rdata")
+# }
+```
+
+```{r}
+Jill.car.sep <- one.separation("Jill.car", carb, bg.media)
+Jill.cis.less.sep <- one.separation("Jill.cis.less", cis.less, bg.media)
+Jill.cis.more.sep <- one.separation("Jill.cis.more", cis.more, bg.media)
+```
+
+
+```{r}
+ts.car <- target_sig_M1(carb, Jill.car.sep)
+ts.cis.less <- target_sig_M1(cis.less, Jill.cis.less.sep)
+ts.cis.more <- target_sig_M1(cis.more, Jill.cis.more.sep)
+```
+
+
+
+
+## Cisplatin (less) inferred Target Signature 
+### MSM0.7	Cisplatin (3.125 uM)
+
+```{r, fig.width=7, fig.height=2}
+pcat(Jill.cis.less.sep$inferred.target.sig.as.catalog)
+```
+```{r}
+philentropy::cosine_dist(Jill.cis.less.sep$inferred.target.sig.as.catalog,
+                         as.catalog(sig.all[,"Cisplatin..3.125.uM.", drop = FALSE], catalog.type = "counts.signature", infer.rownames = TRUE), 
+                         testNA = FALSE)
+```
+
+
+```{r, fig.height=4, fig.width=7}
+# Signature derived in Jill's paper
+Jill.cis.sig <- cbind(sig.all[,"Cisplatin..3.125.uM.", drop = FALSE], sig.all[,"Cisplatin..12.5.uM.", drop = FALSE])
+
+pcat(as.catalog(Jill.cis.sig, catalog.type = "counts.signature", infer.rownames = TRUE))
+```
+
+```{r, fig.height=5, fig.width=7}
+# Reconstructed spectra for cisplatin (3.125uM)
+pcat(ts.cis.less)
+```
+
+Overall pairwise cosine similarity 
+```{r}
+colnames <- c()
+pw.sim = matrix(data=NA, nrow=1, ncol=0)
+x=1
+for (i in 1:(ncol(ts.cis.less)-1)){
+  for (j in (i+1):ncol(ts.cis.less)){
+    tmp.sim <- philentropy::cosine_dist(ts.cis.less[,i,drop=FALSE],ts.cis.less[,j,drop=FALSE], testNA=TRUE)
+    colnames <- c(colnames, paste(colnames(ts.cis.less)[i],
+                                  colnames(ts.cis.less)[j],
+                                  sep="-"))
+    pw.sim <- cbind(pw.sim, tmp.sim)
+  }
+}
+colnames(pw.sim) <- colnames
+rownames(pw.sim) <- names(tmp.sim)
+
+pw.sim
+```
+Heat Map of clonal cisplatin comparison 
+```{r, fig.height=6, fig.width=6}
+cosine.sim <- suppressMessages(
+  philentropy::distance(t(ts.cis.less), method = "cosine"))
+
+colnames(cosine.sim) <- colnames(ts.cis.less)
+rownames(cosine.sim) <- colnames(ts.cis.less)
+gplots::heatmap.2(x = cosine.sim,
+                  dendrogram = "column",
+                  margins = c(10, 10),
+                  cex.axis = 2,
+                  symm = TRUE,
+                  trace = "none")
+```
+
+Weighted cosine similarity 
+```{r}
+colnames <- c()
+pw.subsim <- c()
+x=1
+for (i in 1:(ncol(ts.cis.less)-1)){
+  for (j in (i+1):ncol(ts.cis.less)){
+    tmp.subsim <- subcolor_sim(ts.cis.less[,i,drop=FALSE],ts.cis.less[,j,drop=FALSE])[["weighted.avg"]]
+    colnames <- c(colnames, paste(colnames(ts.cis.less)[i],
+                                  colnames(ts.cis.less)[j],
+                                  sep="-"))
+    pw.subsim <- c(pw.subsim, tmp.subsim)
+  }
+}
+names(pw.subsim) <- colnames
+pw.subsim
+```
+
+Cosine similarity by color
+```{r}
+colnames <- c()
+pw.subsim = matrix(data=NA, nrow=6, ncol=0)
+x=1
+for (i in 1:(ncol(ts.cis.less)-1)){
+  for (j in (i+1):ncol(ts.cis.less)){
+    tmp.subsim <- subcolor_sim(ts.cis.less[,i,drop=FALSE],ts.cis.less[,j,drop=FALSE])[["by.color"]]
+    colnames <- c(colnames, paste(colnames(ts.cis.less)[i],
+                                  colnames(ts.cis.less)[j],
+                                  sep="-"))
+    pw.subsim <- cbind(pw.subsim, tmp.subsim)
+  }
+}
+colnames(pw.subsim) <- colnames
+rownames(pw.subsim) <- names(tmp.subsim)
+
+pw.subsim
+```
+
+```{r}
+matplot(pw.subsim, type = "b",pch=1, col = 1:21, xaxt = "n", xlab = "Subcolor variation among Cisplatin")
+axis(1, at = 1:6, labels = rownames(pw.subsim), cex.axis = 0.7)
+legend("bottomleft", legend = gsub("platin_3.125uM", "", colnames(pw.subsim), fix=TRUE), ncol=2, col=1:21, pch=1, cex = 0.8)
+```
+
+
+
+## Cisplatin (more) inferred Target Signature 
+### MSM0.83	Cisplatin (12.5 uM)
+```{r, fig.width=7, fig.height=2}
+pcat(Jill.cis.more.sep$inferred.target.sig.as.catalog)
+```
+
+```{r, fig.height=4, fig.width=7}
+# Signature derived in Jill's paper
+Jill.cis <- cbind(sig.all[,"Cisplatin..3.125.uM.", drop = FALSE], sig.all[,"Cisplatin..12.5.uM.", drop = FALSE])
+
+pcat(as.catalog(Jill.cis,catalog.type = "counts.signature", infer.rownames = TRUE))
+
+```
+
+```{r}
+philentropy::cosine_dist(Jill.cis.more.sep$inferred.target.sig.as.catalog,
+                         as.catalog(sig.all[,"Cisplatin..12.5.uM.", drop = FALSE], catalog.type = "counts.signature", infer.rownames = TRUE), 
+                         testNA = FALSE)
+```
+
+```{r, fig.height=4, fig.width=7}
+# Reconstructed spectra for cisplatin (12.5uM)
+pcat(ts.cis.more)
+```
+Overall pairwise cosine similarity 
+```{r}
+colnames <- c()
+pw.sim = matrix(data=NA, nrow=1, ncol=0)
+x=1
+for (i in 1:(ncol(ts.cis.more)-1)){
+  for (j in (i+1):ncol(ts.cis.more)){
+    tmp.sim <- philentropy::cosine_dist(ts.cis.more[,i,drop=FALSE],ts.cis.more[,j,drop=FALSE], testNA=TRUE)
+    colnames <- c(colnames, paste(colnames(ts.cis.more)[i],
+                                  colnames(ts.cis.more)[j],
+                                  sep="-"))
+    pw.sim <- cbind(pw.sim, tmp.sim)
+  }
+}
+colnames(pw.sim) <- colnames
+rownames(pw.sim) <- names(tmp.sim)
+
+pw.sim
+```
+Heat Map of clonal cisplatin comparison 
+```{r, fig.height=6, fig.width=6}
+cosine.sim <- suppressMessages(
+  philentropy::distance(t(ts.cis.more), method = "cosine"))
+
+colnames(cosine.sim) <- colnames(ts.cis.more)
+rownames(cosine.sim) <- colnames(ts.cis.more)
+gplots::heatmap.2(x = cosine.sim,
+                  dendrogram = "column",
+                  margins = c(7, 7),
+                  cex.axis = 2,
+                  symm = TRUE,
+                  trace = "none")
+```
+
+
+Weighted cosine similarity 
+```{r}
+colnames <- c()
+pw.subsim <- c()
+x=1
+for (i in 1:(ncol(ts.cis.more)-1)){
+  for (j in (i+1):ncol(ts.cis.more)){
+    tmp.subsim <- subcolor_sim(ts.cis.more[,i,drop=FALSE],ts.cis.more[,j,drop=FALSE])[["weighted.avg"]]
+    colnames <- c(colnames, paste(colnames(ts.cis.more)[i],
+                                  colnames(ts.cis.more)[j],
+                                  sep="-"))
+    pw.subsim <- c(pw.subsim, tmp.subsim)
+  }
+}
+names(pw.subsim) <- colnames
+pw.subsim
+```
+
+Cosine similarity by color
+```{r}
+colnames <- c()
+pw.subsim = matrix(data=NA, nrow=6, ncol=0)
+x=1
+for (i in 1:(ncol(ts.cis.more)-1)){
+  for (j in (i+1):ncol(ts.cis.more)){
+    tmp.subsim <- subcolor_sim(ts.cis.more[,i,drop=FALSE],ts.cis.more[,j,drop=FALSE])[["by.color"]]
+    colnames <- c(colnames, paste(colnames(ts.cis.more)[i],
+                                  colnames(ts.cis.more)[j],
+                                  sep="-"))
+    pw.subsim <- cbind(pw.subsim, tmp.subsim)
+  }
+}
+colnames(pw.subsim) <- colnames
+rownames(pw.subsim) <- names(tmp.subsim)
+
+pw.subsim
+```
+
+```{r}
+matplot(pw.subsim, type = "b",pch=1, col = 1:21, xaxt = "n", xlab = "Subcolor variation among Cisplatin")
+axis(1, at = 1:6, labels = rownames(pw.subsim), cex.axis = 0.7)
+legend("bottomleft", legend = gsub("platin_12.5uM", "", colnames(pw.subsim), fix=TRUE), ncol=2, col=1:21, pch=1, cex = 0.8)
+```
+
+
+
+## Carboplatin inferred Target Signature 
+```{r, fig.width=7, fig.height=2}
+pcat(Jill.car.sep$inferred.target.sig.as.catalog)
+```
+
+```{r, fig.height=2, fig.width=7}
+# Signature derived in Jill's paper
+Jill.car <- sig.all[,"Carboplatin..5.uM.", drop = FALSE]
+
+pcat(as.catalog(Jill.car,catalog.type = "counts.signature", infer.rownames = TRUE))
+```
+
+```{r}
+philentropy::cosine_dist(Jill.car.sep$inferred.target.sig.as.catalog, 
+                         as.matrix(sig.all[,"Carboplatin..5.uM.", drop = FALSE]), testNA = FALSE)
+```
+
+
+Overall pairwise cosine sim
+```{r}
+colnames <- c()
+pw.sim = matrix(data=NA, nrow=1, ncol=0)
+x=1
+for (i in 1:(ncol(ts.car)-1)){
+  for (j in (i+1):ncol(ts.car)){
+    tmp.sim <- philentropy::cosine_dist(ts.car[,i,drop=FALSE],ts.car[,j,drop=FALSE], testNA=TRUE)
+    colnames <- c(colnames, paste(colnames(ts.car)[i],
+                                  colnames(ts.car)[j],
+                                  sep="-"))
+    pw.sim <- cbind(pw.sim, tmp.sim)
+  }
+}
+colnames(pw.sim) <- colnames
+rownames(pw.sim) <- names(tmp.sim)
+
+pw.sim
+```
+
+```{r, fig.height=6, fig.width=6}
+cosine.sim <- suppressMessages(
+  philentropy::distance(t(ts.car), method = "cosine"))
+
+colnames(cosine.sim) <- colnames(ts.car)
+rownames(cosine.sim) <- colnames(ts.car)
+gplots::heatmap.2(x = cosine.sim,
+                  dendrogram = "column",
+                  margins = c(15, 15),
+                  cex.axis = 0.5,
+                  symm = TRUE,
+                  trace = "none")
+```
+
+Weighted cosine sim
+```{r}
+colnames <- c()
+pw.subsim <- c()
+x=1
+for (i in 1:(ncol(ts.car)-1)){
+  for (j in (i+1):ncol(ts.car)){
+    tmp.subsim <- subcolor_sim(ts.car[,i,drop=FALSE],ts.car[,j,drop=FALSE])[["weighted.avg"]]
+    colnames <- c(colnames, paste(colnames(ts.car)[i],
+                                  colnames(ts.car)[j],
+                                  sep="-"))
+    pw.subsim <- c(pw.subsim, tmp.subsim)
+  }
+}
+names(pw.subsim) <- colnames
+pw.subsim
+```
+
+Cosine sim by color
+```{r}
+colnames <- c()
+pw.subsim = matrix(data=NA, nrow=6, ncol=0)
+x=1
+for (i in 1:(ncol(ts.car)-1)){
+  for (j in (i+1):ncol(ts.car)){
+    tmp.subsim <- subcolor_sim(ts.car[,i,drop=FALSE],ts.car[,j,drop=FALSE])[["by.color"]]
+    colnames <- c(colnames, paste(colnames(ts.car)[i],
+                                  colnames(ts.car)[j],
+                                  sep="-"))
+    pw.subsim <- cbind(pw.subsim, tmp.subsim)
+  }
+}
+colnames(pw.subsim) <- colnames
+rownames(pw.subsim) <- names(tmp.subsim)
+
+pw.subsim
+```
+
+```{r}
+matplot(pw.subsim, type = "b",pch=1, col = 1:21, xaxt = "n", xlab = "Subcolor of Mutation Types")
+axis(1, at = 1:6, labels = rownames(pw.subsim), cex.axis = 0.7)
+legend("bottomleft", legend = colnames(pw.subsim), col=1:21, pch=1, cex = 0.8)
+```
