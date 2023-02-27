@@ -4,6 +4,7 @@ author: "Xinyi"
 date: "2023-02-14"
 output: html_document
 ---
+Description: A Hodge-podge of codes to compare the differences between: our data, Jill's data, our methods, Jill's methods.This file uses the platins as an example.
 
 # Load packages
 ```{r}
@@ -518,7 +519,7 @@ philentropy::cosine_dist(mcf10a.car.sep96$inferred.target.sig.as.catalog,
 carb <- cbind(Jill_to_SBS96(subs.all[grep("MSM0.72_s1", subs.all[,3]), ,drop = FALSE]),
               Jill_to_SBS96(subs.all[grep("MSM0.72_s2", subs.all[,3]), ,drop = FALSE]),
               Jill_to_SBS96(subs.all[grep("MSM0.72_s3", subs.all[,3]), ,drop = FALSE]))
-colnames(carb)<- paste0("carboplatin_s", rep(1:3))
+colnames(carb)<- paste0("carboplxatin_s", rep(1:3))
 
 # Cisplatin
 cis.less <- cbind(Jill_to_SBS96(subs.all[grep("MSM0.7_s4", subs.all[,3]), ,drop = FALSE]),

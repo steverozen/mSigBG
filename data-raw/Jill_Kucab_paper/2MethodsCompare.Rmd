@@ -4,6 +4,7 @@ author: "Xinyi"
 date: "2023-02-24"
 output: html_document
 ---
+Description: this file compares the similarity between signatures after background separation using our method and the signature published by Jill (Using Jill's background separation methods). 
 
 # Load packages
 ```{r}
@@ -173,6 +174,14 @@ sig.all <- read.table("Jill_Mutagen53_sub_signature.txt",header = TRUE, sep ="\t
 subs.all <- read.table("Jill_denovo_subclone_subs_final.txt",header = TRUE, sep ="\t")
 ```
 
+```{r}
+# REMOVE X IN "X1.8.DNP..0.125.uM." for sig.name column names for MSM_table matching 
+for (i in 1:length(colnames(sig.all))){
+  if (substring(colnames(sig.all)[i], 1, 1) =="X")
+    colnames(sig.all)[i] <- substring(colnames(sig.all)[i],2)
+}
+```
+
 # Extract the data we need 
 The Controls:
 MSM0.118	DMSO Control (0.5%) + HS9
@@ -250,15 +259,6 @@ MSM_table[,2] <- names
 # in Signature names, one is named as Temozolomide..200.uM..1
 # Here we assume that MSM0.75 is named as Temozolomide..200.uM..1
 MSM_table[MSM_table[1]=="MSM0.75",2] <- "Temozolomide..200.uM..1"
-```
-
-
-```{r}
-# REMOVE X IN "X1.8.DNP..0.125.uM." for sig.name column names 
-for (i in 1:length(colnames(sig.all))){
-  if (substring(colnames(sig.all)[i], 1, 1) =="X")
-    colnames(sig.all)[i] <- substring(colnames(sig.all)[i],2)
-}
 ```
 
 
@@ -346,25 +346,37 @@ for (i in tmp){
 }
 ```
 
+
+
+```{r,echo=FALSE}
+# loop through the bg-sep results previously generated 
+# load("Jill.all.compound.sep.Rdata")
+# load("Jill.all.cosine.Rdata")
+
+# for (compound.sep in all.compound.sep){
+#   sig.name <- names(compound.sep)
+#   #pcat(compound.sep[1][[sig.name]]$inferred.target.sig.as.catalog)
+#   #pcat(as.catalog(sig.all[,sig.name, drop = FALSE],catalog.type = "counts.signature", infer.rownames = TRUE))
+#   print(sig.name)
+#   philentropy::cosine_dist(compound.sep[[sig.name]]$inferred.target.sig.as.catalog, 
+#                            as.catalog(sig.all[,sig.name, drop = FALSE],catalog.type = "counts.signature",
+#                                       infer.rownames = TRUE), testNA = FALSE)
+# }
+```
+
+
+
 ```{r}
-#compound.sep <- all.compound.sep[1]
-# HOW TO LOOP??
-for (compound.sep in all.compound.sep){
-  sig.name <- names(compound.sep)
-  pcat(compound.sep[1]$inferred.target.sig.as.catalog)
-  pcat(as.catalog(sig.all[,sig.name, drop = FALSE],catalog.type = "counts.signature", infer.rownames = TRUE))
-  print(sig.name)
-  philentropy::cosine_dist(compound.sep$inferred.target.sig.as.catalog, 
-                           as.catalog(sig.all[,sig.name, drop = FALSE],catalog.type = "counts.signature",
-                                      infer.rownames = TRUE), testNA = FALSE)
+interesting_compounds <- names(all.cosine[all.cosine < 0.9])
+
+i <- interesting_compounds[8]
+for (i in interesting_compounds){
+  pcat(as.catalog(sig.all[,i, drop = FALSE],catalog.type = "counts.signature", infer.rownames = TRUE))
+  pcat(all.compound.sep[[i]]$inferred.target.sig.as.catalog)
+  print(all.cosine[i])
 }
 ```
 
-```{r}
-for(compound.sep in all.compound.sep){
-  
-}
-```
 
 
 

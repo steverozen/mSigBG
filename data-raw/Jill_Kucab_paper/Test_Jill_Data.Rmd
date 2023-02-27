@@ -5,6 +5,10 @@ date: "2023-02-14"
 output: html_document
 ---
 
+Description: A Hodge-podge of codes to compare the differences between: our data, Jill's data, our methods, Jill's methods.(including pairwise similarity, weighted similarity, subcolor similarity etc.) -> Did not include all the controls (!which is why the results are bad!), revised in Test_Jill_Data(Comparison)
+
+This file has not been deleted as some fuctions for similarity comparison can be a reference for future analysis.
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```

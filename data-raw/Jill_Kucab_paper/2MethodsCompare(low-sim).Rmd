@@ -1,0 +1,72 @@
+---
+title: "Jill's data: Our method VS Jill's method"
+author: "Xinyi"
+date: "2023-02-24"
+output: html_document
+---
+Description: this file is a simplified version for visualizing those compounds whose signatures are quite different (<0.9 cosine sim) using our and Jill's method.
+
+# Load packages
+```{r}
+library(ICAMS)
+library(philentropy)
+library(factoextra)
+library(gplots)
+library(nloptr)
+devtools::load_all(".")
+```
+
+# Functions for this File 
+```{r}
+pcat <- function(catalog) {
+  par(pin = c(3*ncol(catalog), 1))
+  par(mfrow = c(ncol(catalog), 1))
+  par(mar = c(2, 4, 4, 2))
+  par(cex = 0.8)
+  par(cex.main = 1.4) 
+  xlabels <- FALSE
+  for (i in 1:ncol(catalog)) {
+    if (FALSE && i == ncol(catalog)) { # FALSE an experiment
+      xlabels <- TRUE
+      par(mar = c(4.5, 4, 3, 2))
+    }
+    
+    ICAMS::PlotCatalog(catalog[ , i, drop = FALSE],
+                       upper = (i == 1),
+                       xlabels = xlabels)
+  }
+}
+```
+
+# Read Input from Jill Kucab's data
+```{r}
+sig.all <- read.table("Jill_Mutagen53_sub_signature.txt",header = TRUE, sep ="\t")
+
+subs.all <- read.table("Jill_denovo_subclone_subs_final.txt",header = TRUE, sep ="\t")
+```
+
+
+```{r}
+# REMOVE X IN "X1.8.DNP..0.125.uM." for sig.name column names 
+for (i in 1:length(colnames(sig.all))){
+  if (substring(colnames(sig.all)[i], 1, 1) =="X")
+    colnames(sig.all)[i] <- substring(colnames(sig.all)[i],2)
+}
+```
+
+# Plotting those compound whose signature similarity is smaller than 0.9 between our method and Jill's method
+```{r}
+load("Jill.all.compound.sep.Rdata")
+load("Jill.all.cosine.Rdata")
+```
+
+```{r, fig.width=10, fig.height=1.5}
+interesting_compounds <- names(all.cosine[all.cosine < 0.9])
+
+i <- interesting_compounds[8]
+for (i in interesting_compounds){
+  pcat(as.catalog(sig.all[,i, drop = FALSE],catalog.type = "counts.signature", infer.rownames = TRUE))
+  pcat(all.compound.sep[[i]]$inferred.target.sig.as.catalog)
+  print(all.cosine[i])
+}
+```
