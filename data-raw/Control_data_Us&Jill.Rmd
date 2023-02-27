@@ -1,0 +1,305 @@
+---
+title: "Control_data_Us&Jill"
+author: "Xinyi"
+date: "2023-02-27"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### prepare packages 
+```{r, libraries, echo=TRUE, message=FALSE}
+# CRAN packages
+library(ICAMS)
+#BiocManager::install("ICAMS")
+library(philentropy)
+library(factoextra)
+library(gplots)
+library(nloptr)
+
+# Other
+devtools::load_all(".")
+library(BSgenome.Hsapiens.1000genomes.hs37d5)
+```
+# Functions for this File 
+```{r}
+pcat <- function(catalog) {
+  par(pin = c(3*ncol(catalog), 1))
+  par(mfrow = c(ncol(catalog), 1))
+  par(mar = c(2, 4, 4, 2))
+  par(cex = 0.8)
+  par(cex.main = 1.4) 
+  xlabels <- FALSE
+  for (i in 1:ncol(catalog)) {
+    if (FALSE && i == ncol(catalog)) { # FALSE an experiment
+      xlabels <- TRUE
+      par(mar = c(4.5, 4, 3, 2))
+    }
+    
+    ICAMS::PlotCatalog(catalog[ , i, drop = FALSE],
+                       upper = (i == 1),
+                       xlabels = xlabels)
+  }
+}
+```
+
+```{r}
+convert_base <- function(x){
+  if (x == "A")
+    ret <- "T"
+  else if (x == "C")
+    ret <- "G"
+  else if (x == "G")
+    ret <- "C"
+  else if (x == "T")
+    ret <- "A"
+  else{
+    message("Incorrent input")
+    ret <- 0
+  }
+    
+  return(ret)
+}
+```
+
+```{r}
+Jill_to_SBS96 <- function(input_table){
+  subs <- input_table[,c("pre_context","Ref","rear_context","Alt")]
+  for (i in 1:nrow(input_table)){
+    if (subs[i,2] == "A" | subs[i,2] =="G"){
+      tmp1 <- convert_base(subs[i,1])
+      tmp2 <- convert_base(subs[i,2])
+      tmp3 <- convert_base(subs[i,3])
+      tmp4 <- convert_base(subs[i,4])
+      subs[i,1] <- tmp3
+      subs[i,2] <- tmp2
+      subs[i,3] <- tmp1
+      subs[i,4] <- tmp4
+    }
+  }
+  subs.pasted <- apply(subs, MARGIN = 1, function(x){paste0(x[1], x[2], x[3], x[4])})
+  SBS96.template <- c("ACAA", "ACCA", "ACGA", "ACTA", "CCAA", "CCCA", "CCGA", "CCTA", 
+                      "GCAA", "GCCA", "GCGA", "GCTA", "TCAA", "TCCA", "TCGA", "TCTA", 
+                      "ACAG", "ACCG", "ACGG", "ACTG", "CCAG", "CCCG", "CCGG", "CCTG", 
+                      "GCAG", "GCCG", "GCGG", "GCTG", "TCAG", "TCCG", "TCGG", "TCTG",
+                      "ACAT", "ACCT", "ACGT", "ACTT", "CCAT", "CCCT", "CCGT", "CCTT", 
+                      "GCAT", "GCCT", "GCGT", "GCTT", "TCAT", "TCCT", "TCGT", "TCTT", 
+                      "ATAA", "ATCA", "ATGA", "ATTA", "CTAA", "CTCA", "CTGA", "CTTA", 
+                      "GTAA", "GTCA", "GTGA", "GTTA", "TTAA", "TTCA", "TTGA", "TTTA", 
+                      "ATAC", "ATCC", "ATGC", "ATTC", "CTAC", "CTCC", "CTGC", "CTTC", 
+                      "GTAC", "GTCC", "GTGC", "GTTC", "TTAC", "TTCC", "TTGC", "TTTC", 
+                      "ATAG", "ATCG", "ATGG", "ATTG", "CTAG", "CTCG", "CTGG", "CTTG", 
+                      "GTAG", "GTCG", "GTGG", "GTTG", "TTAG", "TTCG", "TTGG", "TTTG") 
+  subs.spectra <- rep(0,96)
+  names(subs.spectra) <- SBS96.template
+  
+  # count occurrence 
+  for (i in subs.pasted){
+    subs.spectra[i] <- subs.spectra[i] + 1
+  }
+  
+  subs.cat <- as.catalog(as.matrix(subs.spectra), ref.genome = "GRCh37", region = "genome", catalog.type = "counts" , infer.rownames = TRUE)
+  
+  return(subs.cat)
+}
+```
+
+### Prepare Controls
+##### Load the controls from vcfs (our data)
+```{r}
+hepg2.ctrl_vcfs <- list.files(path = "../data/controls_data_vcf/HepG2_Control/", full.names = TRUE)
+mcf10a.ctrl_vcfs <- list.files(path = "../data/controls_data_vcf/MCF10A_Control/" , full.names = TRUE)
+
+hepg2.HS9_vcfs <- list.files(path = "../data/controls_data_vcf/HepG2-Hamster-S9/", full.names = TRUE)
+mcf10a.HS9_vcfs <- list.files(path = "../data/controls_data_vcf/MCF10A-Hamster-S9/" , full.names = TRUE)
+
+hepg2.RS9_vcfs <- list.files(path = "../data/controls_data_vcf/HepG2-RatS9/", full.names = TRUE)
+mcf10a.RS9_vcfs <- list.files(path = "../data/controls_data_vcf/MCF10A-RatS9/" , full.names = TRUE)
+
+hepg2.RS9_DMSO_vcfs <- list.files(path = "../data/controls_data_vcf/HepG2-RatS9-DMSO/", full.names = TRUE)
+mcf10a.RS9_DMSO_vcfs <- list.files(path = "../data/controls_data_vcf/MCF10A-RatS9-DMSO/" , full.names = TRUE)
+
+```
+
+Covert vcfs to SBS96 Catalog & Save to Rdata 
+```{r}
+# These vcf seems to use 38, dk why the previous R markdown uses BSgenome.Hsapiens.1000genomes.hs37d5
+
+# hepg2.ctrl and mcf10a.ctrl are both using GRCh37 instead of hg38
+
+#HepG2
+if (!file.exists("../data/hepg2.ctrl.spec.Rdata")){
+  hepg2.ctrl.spec <- ICAMS::VCFsToCatalogs(hepg2.ctrl_vcfs,
+               ref.genome ="GRCh37",
+               variant.caller = "strelka",
+               region = "genome")$catSBS96
+  save(hepg2.ctrl.spec, file = "../data/hepg2.ctrl.spec.Rdata")
+}else{
+  load("../data/hepg2.ctrl.spec.Rdata")
+}
+
+if (!file.exists("../data/hepg2.HS9.spec.Rdata")){
+  hepg2.HS9.spec <- ICAMS::VCFsToCatalogs(hepg2.HS9_vcfs,
+               ref.genome ="hg38",
+               variant.caller = "strelka",
+               region = "genome",
+               num.of.cores = 4)$catSBS96
+  save(hepg2.HS9.spec, file = "../data/hepg2.HS9.spec.Rdata")
+}else{
+  load("../data/hepg2.HS9.spec.Rdata")
+}
+
+if (!file.exists("../data/hepg2.RS9.spec.Rdata")){
+  hepg2.RS9.spec <- ICAMS::VCFsToCatalogs(hepg2.RS9_vcfs,
+               ref.genome ="hg38",
+               variant.caller = "strelka",
+               region = "genome",
+               num.of.cores = 4)$catSBS96
+  save(hepg2.RS9.spec, file = "../data/hepg2.RS9.spec.Rdata")
+}else{
+  load("../data/hepg2.RS9.spec.Rdata")
+}
+
+if (!file.exists("../data/hepg2.RS9-DMSO.spec.Rdata")){
+  hepg2.RS9_DMSO.spec <- ICAMS::VCFsToCatalogs(hepg2.RS9_DMSO_vcfs,
+               ref.genome ="hg38",
+               variant.caller = "strelka",
+               region = "genome",
+               num.of.cores = 4)$catSBS96
+  save(hepg2.RS9_DMSO.spec, file = "../data/hepg2.RS9-DMSO.spec.Rdata")
+}else{
+  load("../data/hepg2.RS9-DMSO.spec.Rdata")
+}
+
+
+# MCF10A
+if (!file.exists("../data/mcf10a.ctrl.spec.Rdata")){
+  mcf10a.ctrl.spec <- ICAMS::VCFsToCatalogs(mcf10a.ctrl_vcfs,
+               ref.genome ="GRCh37",
+               variant.caller = "strelka",
+               region = "genome")$catSBS96
+  save(mcf10a.ctrl.spec, file = "../data/mcf10a.ctrl.spec.Rdata")
+}else{
+  load("../data/mcf10a.ctrl.spec.Rdata")
+}
+
+if (!file.exists("../data/mcf10a.HS9.spec.Rdata")){
+  mcf10a.HS9.spec <- ICAMS::VCFsToCatalogs(mcf10a.HS9_vcfs,
+               ref.genome ="hg38",
+               variant.caller = "strelka",
+               region = "genome",
+               num.of.cores = 4)$catSBS96
+  save(mcf10a.HS9.spec, file = "../data/mcf10a.HS9.spec.Rdata")
+}else{
+  load("../data/mcf10a.HS9.spec.Rdata")
+}
+
+if (!file.exists("../data/mcf10a.RS9.spec.Rdata")){
+  mcf10a.RS9.spec <- ICAMS::VCFsToCatalogs(mcf10a.RS9_vcfs,
+               ref.genome ="hg38",
+               variant.caller = "strelka",
+               region = "genome",
+               num.of.cores = 4)$catSBS96
+  save(mcf10a.RS9.spec, file = "../data/mcf10a.RS9.spec.Rdata")
+}else{
+  load("../data/mcf10a.RS9.spec.Rdata")
+}
+
+if (!file.exists("../data/mcf10a.RS9-DMSO.spec.Rdata")){
+  mcf10a.RS9_DMSO.spec <- ICAMS::VCFsToCatalogs(mcf10a.RS9_DMSO_vcfs,
+               ref.genome ="hg38",
+               variant.caller = "strelka",
+               region = "genome",
+               num.of.cores = 4)$catSBS96
+  save(mcf10a.RS9_DMSO.spec, file = "../data/mcf10a.RS9-DMSO.spec.Rdata")
+}else{
+  load("../data/mcf10a.RS9-DMSO.spec.Rdata")
+}
+```
+
+##### Load the controls (Jill's data）
+Read Input from Jill Kucab's data
+
+```{r}
+subs.all <- read.table("Jill_Kucab_paper/Jill_denovo_subclone_subs_final.txt",header = TRUE, sep ="\t")
+```
+
+```{r}
+DMSO_0.5_HS9 <- Jill_to_SBS96(subs.all[grep("MSM0.118", subs.all[,3]), ,drop = FALSE])
+DMSO_0.5_S9 <- Jill_to_SBS96(subs.all[grep("MSM0.119", subs.all[,3]), ,drop = FALSE])
+DMSO_0.1_S9 <- Jill_to_SBS96(subs.all[grep("MSM0.131", subs.all[,3]), ,drop = FALSE])
+DMSO_0.68 <- Jill_to_SBS96(subs.all[grep("MSM0.4", subs.all[,3]), ,drop = FALSE])
+DMSO_0.35_S9 <- Jill_to_SBS96(subs.all[grep("MSM0.86", subs.all[,3]), ,drop = FALSE])
+DMSO_0.1 <- Jill_to_SBS96(subs.all[grep("MSM0.9", subs.all[,3]), ,drop = FALSE])
+H2O_0.1 <- Jill_to_SBS96(subs.all[grep("MSM0.1", subs.all[,3]), ,drop = FALSE])
+H2O_0.1_ <- Jill_to_SBS96(subs.all[grep("MSM0.45", subs.all[,3]), ,drop = FALSE])
+
+Media <- Jill_to_SBS96(subs.all[grep("MSM0.8", subs.all[,3]), ,drop = FALSE])
+Media_ <- Jill_to_SBS96(subs.all[grep("MSM0.128", subs.all[,3]), ,drop = FALSE])
+Media_S9 <- Jill_to_SBS96(subs.all[grep("MSM0.4", subs.all[,3]), ,drop = FALSE])
+
+MeOH_1.3 <- Jill_to_SBS96(subs.all[grep("MSM0.120", subs.all[,3]), ,drop = FALSE])
+MeOH_4.3_S9 <- Jill_to_SBS96(subs.all[grep("MSM0.127", subs.all[,3]), ,drop = FALSE])
+NaCl_0.003 <- Jill_to_SBS96(subs.all[grep("MSM0.6", subs.all[,3]), ,drop = FALSE])
+DMSO_0.1_S9_ <- Jill_to_SBS96(subs.all[grep("MSM0.37", subs.all[,3]), ,drop = FALSE])
+
+all.controls <- cbind(DMSO_0.5_HS9,DMSO_0.5_S9,DMSO_0.1_S9,
+                      DMSO_0.68, DMSO_0.35_S9, DMSO_0.1, 
+                      H2O_0.1,H2O_0.1_,
+                      Media, Media_, Media_S9,
+                      MeOH_1.3, MeOH_4.3_S9,NaCl_0.003,DMSO_0.1_S9_)
+```
+
+
+### Generate BG info 
+```{r}
+bg.media <- MakeBackgroundInfo(all.controls)
+```
+
+```{r, fig.height=1.5, fig.width=10}
+colnames(bg.media$background.sig) <- "Jill's controls"
+pcat(bg.media$background.sig)
+```
+
+```{r,fig.height=3, fig.width=10}
+# cannot mix catalog with different refernce genome 
+hepg2.else.bg <- MakeBackgroundInfo(cbind(hepg2.HS9.spec, hepg2.RS9.spec, hepg2.RS9_DMSO.spec))
+mcf10a.else.bg <- MakeBackgroundInfo(cbind(mcf10a.HS9.spec, mcf10a.RS9.spec, mcf10a.RS9_DMSO.spec))
+colnames(hepg2.else.bg$background.sig) <- "hepg2.else.bg"
+colnames(mcf10a.else.bg$background.sig) <- "mcf10a.else.bg"
+pcat(cbind(hepg2.else.bg$background.sig, mcf10a.else.bg$background.sig))
+```
+#### HepG2
+```{r,fig.height=6, fig.width=10}
+hepg2.bg <- MakeBackgroundInfo(hepg2.ctrl.spec)$background.sig
+hepg2.HS9.bg <- MakeBackgroundInfo(hepg2.HS9.spec)$background.sig
+hepg2.RS9.bg <- MakeBackgroundInfo(hepg2.RS9.spec)$background.sig
+hepg2.RS9_DMSO.bg <- MakeBackgroundInfo(hepg2.RS9_DMSO.spec)$background.sig
+
+pcat(cbind(hepg2.bg,
+           hepg2.HS9.bg,
+           hepg2.RS9.bg,
+           hepg2.RS9_DMSO.bg))
+```
+#### MCF10a
+```{r,fig.height=6, fig.width=10}
+# MCF10a
+mcf10a.bg <- MakeBackgroundInfo(mcf10a.ctrl.spec)$background.sig
+mcf10a.HS9.bg <- MakeBackgroundInfo(mcf10a.HS9.spec)$background.sig
+mcf10a.RS9.bg <- MakeBackgroundInfo(mcf10a.RS9.spec)$background.sig
+mcf10a.RS9_DMSO.bg <- MakeBackgroundInfo(mcf10a.RS9_DMSO.spec)$background.sig
+
+pcat(cbind(mcf10a.bg,
+           mcf10a.HS9.bg,
+           mcf10a.RS9.bg,
+           mcf10a.RS9_DMSO.bg))
+```
+
+```{r}
+
+```
+
+
+

@@ -209,6 +209,31 @@ ctrl.names <- c("MSM0.118","MSM0.119","MSM0.131","MSM0.4",
 
 ```
 
+```{r}
+DMSO_0.5_HS9 <- Jill_to_SBS96(subs.all[grep("MSM0.118", subs.all[,3]), ,drop = FALSE])
+DMSO_0.5_S9 <- Jill_to_SBS96(subs.all[grep("MSM0.119", subs.all[,3]), ,drop = FALSE])
+DMSO_0.1_S9 <- Jill_to_SBS96(subs.all[grep("MSM0.131", subs.all[,3]), ,drop = FALSE])
+DMSO_0.68 <- Jill_to_SBS96(subs.all[grep("MSM0.4", subs.all[,3]), ,drop = FALSE])
+DMSO_0.35_S9 <- Jill_to_SBS96(subs.all[grep("MSM0.86", subs.all[,3]), ,drop = FALSE])
+DMSO_0.1 <- Jill_to_SBS96(subs.all[grep("MSM0.9", subs.all[,3]), ,drop = FALSE])
+H2O_0.1 <- Jill_to_SBS96(subs.all[grep("MSM0.1", subs.all[,3]), ,drop = FALSE])
+H2O_0.1_ <- Jill_to_SBS96(subs.all[grep("MSM0.45", subs.all[,3]), ,drop = FALSE])
+
+Media <- Jill_to_SBS96(subs.all[grep("MSM0.8", subs.all[,3]), ,drop = FALSE])
+Media_ <- Jill_to_SBS96(subs.all[grep("MSM0.128", subs.all[,3]), ,drop = FALSE])
+Media_S9 <- Jill_to_SBS96(subs.all[grep("MSM0.4", subs.all[,3]), ,drop = FALSE])
+
+MeOH_1.3 <- Jill_to_SBS96(subs.all[grep("MSM0.120", subs.all[,3]), ,drop = FALSE])
+MeOH_4.3_S9 <- Jill_to_SBS96(subs.all[grep("MSM0.127", subs.all[,3]), ,drop = FALSE])
+NaCl_0.003 <- Jill_to_SBS96(subs.all[grep("MSM0.6", subs.all[,3]), ,drop = FALSE])
+DMSO_0.1_S9_ <- Jill_to_SBS96(subs.all[grep("MSM0.37", subs.all[,3]), ,drop = FALSE])
+
+all.controls <- cbind(DMSO_0.5_HS9,DMSO_0.5_S9,DMSO_0.1_S9,
+                      DMSO_0.68, DMSO_0.35_S9, DMSO_0.1, 
+                      H2O_0.1,H2O_0.1_,
+                      Media, Media_, Media_S9,
+                      MeOH_1.3, MeOH_4.3_S9,NaCl_0.003,DMSO_0.1_S9_)
+```
 
 ```{r}
 control.names <- c("MSM0.118", "MSM0.119", "MSM0.131", "MSM0.4", "MSM0.86", "MSM0.9",
