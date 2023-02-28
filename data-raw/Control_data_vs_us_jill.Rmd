@@ -121,6 +121,44 @@ mcf10a.RS9_vcfs <- list.files(path = "../data/controls_data_vcf/MCF10A-RatS9/" ,
 hepg2.RS9_DMSO_vcfs <- list.files(path = "../data/controls_data_vcf/HepG2-RatS9-DMSO/", full.names = TRUE)
 mcf10a.RS9_DMSO_vcfs <- list.files(path = "../data/controls_data_vcf/MCF10A-RatS9-DMSO/" , full.names = TRUE)
 
+
+dnames <- c(
+  "HepG2_Control",
+  "HepG2-Hamster-S9",
+  "HepG2-RatS9",
+  "HepG2-RatS9-DMSO",
+  "MCF10A_Control",
+  "MCF10A-Hamster-S9",
+  "MCF10A-RatS9",
+  "MCF10A-RatS9-DMSO"
+)
+
+hack_ref_genome <- function(dname) {
+  if (grepl("_Control", dname)) {
+    return("GRCh37")
+  } else {
+    return("hg38")
+  }
+}
+
+get_spectra <- function(dd) {
+  
+  vcfs <- list.files(path = file.path("../data/controls_data_vcf/", dd), 
+                     full.names = TRUE)
+  return(
+    ICAMS::VCFsToCatalogs(
+      vcfs,
+      ref.genome = hack_ref_genome(dd),
+      variant.caller = "strelka",
+      region = "genome"))
+}
+
+spectra <- lapply(dnames, get_spectra)
+names(spectra) = dnames
+
+s96 <- lapply(dnames, function(dd) {spectra[[dd]]$catSBS96} )
+ICAMS::PlotCatalogToPdf(do.call(cbind, s96), "foo.pdf")
+
 ```
 
 Covert vcfs to SBS96 Catalog & Save to Rdata 
@@ -227,13 +265,26 @@ subs.all <- read.table("Jill_Kucab_paper/Jill_denovo_subclone_subs_final.txt",he
 ```
 
 ```{r}
+
+by.sample <- split(subs.all, subs.all$Sample.Name)
+all.specta <- lapply(by.sample, Jill_to_SBS96)
+alls <- do.call(cbind, all.spectra)
+rownames(MSM_table) <- MSM_table$Sample.Name
+colnames(alls) <- paste(colnames(alls), MSM_table[colnames(alls), "Treatment"])
+ICAMS::PlotCatalogToPdf(alls, "jill.all.pdf")
+ICAMS::PlotCatalogToPdf(alls[ , grepl("Control", colnames(alls), fixed = TRUE)], "jill.control.pdf")
+
+
 DMSO_0.5_HS9 <- Jill_to_SBS96(subs.all[grep("MSM0.118", subs.all[,3]), ,drop = FALSE])
 DMSO_0.5_S9 <- Jill_to_SBS96(subs.all[grep("MSM0.119", subs.all[,3]), ,drop = FALSE])
 DMSO_0.1_S9 <- Jill_to_SBS96(subs.all[grep("MSM0.131", subs.all[,3]), ,drop = FALSE])
 DMSO_0.68 <- Jill_to_SBS96(subs.all[grep("MSM0.4", subs.all[,3]), ,drop = FALSE])
 DMSO_0.35_S9 <- Jill_to_SBS96(subs.all[grep("MSM0.86", subs.all[,3]), ,drop = FALSE])
 DMSO_0.1 <- Jill_to_SBS96(subs.all[grep("MSM0.9", subs.all[,3]), ,drop = FALSE])
-H2O_0.1 <- Jill_to_SBS96(subs.all[grep("MSM0.1", subs.all[,3]), ,drop = FALSE])
+
+
+H2O_0.1 <- Jill_to_SBS96(subs.all[grep("MSM0.1$", subs.all[, "Sample.Name"]), ,drop = FALSE])
+
 H2O_0.1_ <- Jill_to_SBS96(subs.all[grep("MSM0.45", subs.all[,3]), ,drop = FALSE])
 
 Media <- Jill_to_SBS96(subs.all[grep("MSM0.8", subs.all[,3]), ,drop = FALSE])
