@@ -143,13 +143,35 @@ get_spectra <- function(dd) {
 rozen_ctrl_spectra <- lapply(dnames, get_spectra)
 names(rozen_ctrl_spectra) = dnames
 
-rozen_ctrl_s96 <- lapply(dnames, function(dd) {spectra[[dd]]$catSBS96} )
+rozen_ctrl_s96 <- lapply(dnames, function(dd) {rozen_ctrl_spectra[[dd]]$catSBS96} )
+names(rozen_ctrl_s96) = dnames
 ```
 
 ##### Load the controls (Jill's data）
 Read Input from Jill Kucab's data
 ```{r}
 subs.all <- read.table("Jill_Kucab_paper/Jill_denovo_subclone_subs_final.txt",header = TRUE, sep ="\t")
+```
+
+```{r}
+# Creating a table to map MSM code to sig.name 
+MSM_table <- read.table("Jill_Kucab_paper/MSM_table", header = TRUE, sep = "\t") #, col.names=c("Sample.Name", "Treatment") )
+names <- gsub(" ", ".",MSM_table[,2])
+names <- gsub("\\(", ".",names)
+names <- gsub("\\)", ".",names)
+names <- gsub("\\+", ".",names)
+names <- gsub(",",".",names)
+names <- gsub("-",".",names)
+MSM_table[,2] <- names
+```
+
+```{r}
+# in the MSM table provided, two MSM codes are mapped to the same signature name
+# MSM0.11	Temozolomide..200.uM.			
+# MSM0.75	Temozolomide..200.uM.
+# in Signature names, only one is named as Temozolomide..200.uM..1
+# Here we assume that MSM0.75 is named as Temozolomide..200.uM..1
+MSM_table[MSM_table[1]=="MSM0.75",2] <- "Temozolomide..200.uM..1"
 ```
 
 ```{r}
@@ -165,6 +187,7 @@ ICAMS::PlotCatalogToPdf(alls[ , grepl("Control", colnames(alls), fixed = TRUE)],
 
 ### Generate BG info 
 ```{r}
+all.controls <- alls[ , grepl("Control", colnames(alls), fixed = TRUE)]
 bg.media <- MakeBackgroundInfo(all.controls)
 ```
 
@@ -175,6 +198,7 @@ pcat(bg.media$background.sig)
 
 ```{r,fig.height=3, fig.width=10}
 # cannot mix catalog with different refernce genome 
+
 hepg2.else.bg <- MakeBackgroundInfo(cbind(hepg2.HS9.spec, hepg2.RS9.spec, hepg2.RS9_DMSO.spec))
 mcf10a.else.bg <- MakeBackgroundInfo(cbind(mcf10a.HS9.spec, mcf10a.RS9.spec, mcf10a.RS9_DMSO.spec))
 colnames(hepg2.else.bg$background.sig) <- "hepg2.else.bg"
@@ -182,32 +206,119 @@ colnames(mcf10a.else.bg$background.sig) <- "mcf10a.else.bg"
 pcat(cbind(hepg2.else.bg$background.sig, mcf10a.else.bg$background.sig))
 ```
 #### HepG2
-```{r,fig.height=6, fig.width=10}
-hepg2.bg <- MakeBackgroundInfo(hepg2.ctrl.spec)$background.sig
-hepg2.HS9.bg <- MakeBackgroundInfo(hepg2.HS9.spec)$background.sig
-hepg2.RS9.bg <- MakeBackgroundInfo(hepg2.RS9.spec)$background.sig
-hepg2.RS9_DMSO.bg <- MakeBackgroundInfo(hepg2.RS9_DMSO.spec)$background.sig
+```{r,fig.height=1.5, fig.width=10, echo=FALSE}
+# hepg2.bg <- MakeBackgroundInfo(hepg2.ctrl.spec)$background.sig
+# hepg2.HS9.bg <- MakeBackgroundInfo(hepg2.HS9.spec)$background.sig
+# hepg2.RS9.bg <- MakeBackgroundInfo(hepg2.RS9.spec)$background.sig
+# hepg2.RS9_DMSO.bg <- MakeBackgroundInfo(hepg2.RS9_DMSO.spec)$background.sig
 
-pcat(cbind(hepg2.bg,
-           hepg2.HS9.bg,
-           hepg2.RS9.bg,
-           hepg2.RS9_DMSO.bg))
-```
-#### MCF10a
-```{r,fig.height=6, fig.width=10}
-# MCF10a
-mcf10a.bg <- MakeBackgroundInfo(mcf10a.ctrl.spec)$background.sig
-mcf10a.HS9.bg <- MakeBackgroundInfo(mcf10a.HS9.spec)$background.sig
-mcf10a.RS9.bg <- MakeBackgroundInfo(mcf10a.RS9.spec)$background.sig
-mcf10a.RS9_DMSO.bg <- MakeBackgroundInfo(mcf10a.RS9_DMSO.spec)$background.sig
 
-pcat(cbind(mcf10a.bg,
-           mcf10a.HS9.bg,
-           mcf10a.RS9.bg,
-           mcf10a.RS9_DMSO.bg))
+rozen.bg <- lapply(rozen_ctrl_s96, MakeBackgroundInfo)
+names(rozen.bg) <- names(rozen_ctrl_s96)
+
+
+
 ```
 
+
+# Signatures with Jill's data: rozen method VS jill method
 ```{r}
+
+# Jill separated data
+load("Jill_Kucab_paper/Jill.all.compound.sep.Rdata")
+load("Jill_Kucab_paper/Jill.all.cosine.Rdata")
+
+# Rozen separated data
+load("all.separated.Rdata")
+
+# Jill signature data
+sig.all <- read.table("Jill_Kucab_paper/Jill_Mutagen53_sub_signature.txt",header = TRUE, sep ="\t")
+
+```
+
+Processing of Jill's signature data for mapping 
+```{r}
+# REMOVE X IN "X1.8.DNP..0.125.uM." for sig.name column names for MSM_table matching 
+for (i in 1:length(colnames(sig.all))){
+  if (substring(colnames(sig.all)[i], 1, 1) =="X")
+    colnames(sig.all)[i] <- substring(colnames(sig.all)[i],2)
+}
+```
+
+
+```{r, fig.width=10, fig.height=1.5}
+interesting_compounds <- names(all.cosine[all.cosine < 0.99])
+
+i <- interesting_compounds[8]
+for (i in interesting_compounds){
+  pcat(as.catalog(sig.all[,i, drop = FALSE],catalog.type = "counts.signature", infer.rownames = TRUE))
+  pcat(all.compound.sep[[i]]$inferred.target.sig.as.catalog)
+  print(all.cosine[i])
+}
+```
+
+# Compare Singature with shared compounds
+```{r}
+print(all.cosine[grep("Cisplatin",names(all.cosine))])
+print(all.cosine[grep("Carboplatin",names(all.cosine))])
+jill.cis.sep <- all.compound.sep[grep("Cisplatin",names(all.cosine))]
+jill.car.sep <- all.compound.sep[grep("Carboplatin",names(all.cosine))]
+```
+
+
+```{r, fig.height=9}
+colnames(jill.cis.sep$Cisplatin..3.125.uM.$inferred.target.sig.as.catalog) <- paste("MSM0.7","Cisplatin..3.125.uM.", sep="_")
+colnames(jill.cis.sep$Cisplatin..12.5.uM.$inferred.target.sig.as.catalog) <- paste("MSM0.83","Cisplatin..12.5.uM.", sep="_" )
+
+  
+cis.all.sig <- cbind(jill.cis.sep$Cisplatin..3.125.uM.$inferred.target.sig.as.catalog,
+           as.catalog(sig.all[,"Cisplatin..3.125.uM.", drop = FALSE], catalog.type = "counts.signature", infer.rownames = TRUE),
+           jill.cis.sep$Cisplatin..12.5.uM.$inferred.target.sig.as.catalog,
+           as.catalog(sig.all[,"Cisplatin..12.5.uM.", drop = FALSE], catalog.type = "counts.signature", infer.rownames = TRUE),
+           all.separated$HepG2.cis.sig$inferred.target.sig.as.catalog,
+           all.separated$MCF10A.cis.sig$inferred.target.sig.as.catalog)
+
+pcat(cis.all.sig)
+```
+
+```{r, fig.height=6, fig.width=6}
+cosine.sim <- suppressMessages(
+  philentropy::distance(t(cis.all.sig), method = "cosine"))
+  
+rownames(cosine.sim) <- colnames(cis.all.sig)
+colnames(cosine.sim) <- colnames(cis.all.sig)
+gplots::heatmap.2(x = cosine.sim,
+                  dendrogram = "column",
+                  margins = c(18, 18),
+                  cex.axis = 6,
+                  symm = TRUE,
+                  trace = "none")
+
+```
+
+```{r, fig.height=6}
+colnames(jill.car.sep$Carboplatin..5.uM.$inferred.target.sig.as.catalog) <- paste("MSM0.72","Carboplatin..5.uM.", sep="_")
+
+  
+car.all.sig <- cbind(jill.car.sep$Carboplatin..5.uM.$inferred.target.sig.as.catalog,
+           as.catalog(sig.all[,"Carboplatin..5.uM.", drop = FALSE], catalog.type = "counts.signature", infer.rownames = TRUE),
+           all.separated$HepG2.car.sig$inferred.target.sig.as.catalog,
+           all.separated$MCF10.car.sig$inferred.target.sig.as.catalog)
+
+pcat(car.all.sig)
+```
+```{r,fig.height=6, fig.width=6}
+cosine.sim <- suppressMessages(
+  philentropy::distance(t(car.all.sig), method = "cosine"))
+  
+rownames(cosine.sim) <- colnames(car.all.sig)
+colnames(cosine.sim) <- colnames(car.all.sig)
+gplots::heatmap.2(x = cosine.sim,
+                  dendrogram = "column",
+                  margins = c(20, 20),
+                  cex.axis = 4,
+                  symm = TRUE,
+                  trace = "none")
 
 ```
 

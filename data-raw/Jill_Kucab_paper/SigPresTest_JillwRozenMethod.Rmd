@@ -1,0 +1,427 @@
+---
+title: "Jill's data: Our method VS Jill's method"
+author: "Xinyi"
+date: "2023-02-28"
+output: html_document
+---
+Description: This file is trying to explore how to decide whether a target signature extracted by rozen method is different from that of the background. 
+The above aim is explored in the following ways:
+1. Are there signatures that Rozen Method picks up but Jill did not? (Hard problem, must defined what is an significant signature that differs from the bg in Rozen method)
+2. How to we decide whether one of the control sample does not have signature after Rozen method (What should be taken into account? mutation counts & signature cosine similarity?)
+3. Why would the signature presence test has such low p-value for the controls in Jill's data?
+
+# Load packages
+```{r}
+library(ICAMS)
+library(mSigAct)
+library(philentropy)
+library(factoextra)
+library(gplots)
+library(nloptr)
+ library(parallel)
+devtools::load_all(".")
+```
+
+
+# Functions for this File 
+```{r}
+pcat <- function(catalog) {
+  par(pin = c(3*ncol(catalog), 1))
+  par(mfrow = c(ncol(catalog), 1))
+  par(mar = c(2, 4, 4, 2))
+  par(cex = 0.8)
+  par(cex.main = 1.4) 
+  xlabels <- FALSE
+  for (i in 1:ncol(catalog)) {
+    if (FALSE && i == ncol(catalog)) { # FALSE an experiment
+      xlabels <- TRUE
+      par(mar = c(4.5, 4, 3, 2))
+    }
+    
+    ICAMS::PlotCatalog(catalog[ , i, drop = FALSE],
+                       upper = (i == 1),
+                       xlabels = xlabels)
+  }
+}
+```
+
+```{r}
+convert_base <- function(x){
+  if (x == "A")
+    ret <- "T"
+  else if (x == "C")
+    ret <- "G"
+  else if (x == "G")
+    ret <- "C"
+  else if (x == "T")
+    ret <- "A"
+  else{
+    message("Incorrent input")
+    ret <- 0
+  }
+    
+  return(ret)
+}
+```
+
+```{r}
+Jill_to_SBS96 <- function(input_table){
+  subs <- input_table[,c("pre_context","Ref","rear_context","Alt")]
+  for (i in 1:nrow(input_table)){
+    if (subs[i,2] == "A" | subs[i,2] =="G"){
+      tmp1 <- convert_base(subs[i,1])
+      tmp2 <- convert_base(subs[i,2])
+      tmp3 <- convert_base(subs[i,3])
+      tmp4 <- convert_base(subs[i,4])
+      subs[i,1] <- tmp3
+      subs[i,2] <- tmp2
+      subs[i,3] <- tmp1
+      subs[i,4] <- tmp4
+    }
+  }
+  subs.pasted <- apply(subs, MARGIN = 1, function(x){paste0(x[1], x[2], x[3], x[4])})
+  SBS96.template <- c("ACAA", "ACCA", "ACGA", "ACTA", "CCAA", "CCCA", "CCGA", "CCTA", 
+                      "GCAA", "GCCA", "GCGA", "GCTA", "TCAA", "TCCA", "TCGA", "TCTA", 
+                      "ACAG", "ACCG", "ACGG", "ACTG", "CCAG", "CCCG", "CCGG", "CCTG", 
+                      "GCAG", "GCCG", "GCGG", "GCTG", "TCAG", "TCCG", "TCGG", "TCTG",
+                      "ACAT", "ACCT", "ACGT", "ACTT", "CCAT", "CCCT", "CCGT", "CCTT", 
+                      "GCAT", "GCCT", "GCGT", "GCTT", "TCAT", "TCCT", "TCGT", "TCTT", 
+                      "ATAA", "ATCA", "ATGA", "ATTA", "CTAA", "CTCA", "CTGA", "CTTA", 
+                      "GTAA", "GTCA", "GTGA", "GTTA", "TTAA", "TTCA", "TTGA", "TTTA", 
+                      "ATAC", "ATCC", "ATGC", "ATTC", "CTAC", "CTCC", "CTGC", "CTTC", 
+                      "GTAC", "GTCC", "GTGC", "GTTC", "TTAC", "TTCC", "TTGC", "TTTC", 
+                      "ATAG", "ATCG", "ATGG", "ATTG", "CTAG", "CTCG", "CTGG", "CTTG", 
+                      "GTAG", "GTCG", "GTGG", "GTTG", "TTAG", "TTCG", "TTGG", "TTTG") 
+  subs.spectra <- rep(0,96)
+  names(subs.spectra) <- SBS96.template
+  
+  # count occurrence 
+  for (i in subs.pasted){
+    subs.spectra[i] <- subs.spectra[i] + 1
+  }
+  
+  subs.cat <- as.catalog(as.matrix(subs.spectra), ref.genome = "GRCh37", region = "genome", catalog.type = "counts" , infer.rownames = TRUE)
+  
+  return(subs.cat)
+}
+```
+
+```{r}
+one.separation <- function(sig.name, spectra, bg.sig.info, my.seed = 101010) {
+  
+  set.seed(my.seed, kind = "L'Ecuyer-CMRG")
+  
+  if (is.null(attr(spectra, "abundance"))) {
+    stop("NULL abundance for ", sig.name)
+  }
+  
+  ret <- SeparateSignatureAndSpectra(
+    spectra          = spectra,
+    bg.sig.info      = bg.sig.info,
+    m.opts           = NULL,
+    # start.b.fraction = 0.5,
+    # 0.1 - 0.49 is ok & 0.6 
+    # 0.499 starts the hanging problem
+    start.b.fraction = 0,
+    sig.name         = sig.name
+  )
+  
+  return(ret)
+}
+```
+
+```{r}
+sep_comp_bg <- function(compound.name, subs.all, MSM_table, jill.bg){
+  
+  compound.spectra <-matrix(data=NA,nrow=96)
+  compound.key <- paste0(compound.name,"_")
+  compound.samples <- unique(subs.all[grep(compound.key, subs.all[,3]),"Sample" ,])
+  sig.name <- MSM_table[MSM_table$Sample.Name == compound.name,2]
+  
+  
+  for (compound.subtype in compound.samples){
+    if(is.na(compound.spectra[1]))
+      compound.spectra <- Jill_to_SBS96(subs.all[grep(compound.subtype, subs.all[,3]), ,drop = FALSE])
+    else
+      compound.spectra <- cbind(compound.spectra,
+                                Jill_to_SBS96(subs.all[grep(compound.subtype, subs.all[,3]), ,drop = FALSE]))
+  }
+  colnames(compound.spectra)<-compound.samples
+  
+  compound.sep <- one.separation(compound.name, compound.spectra, jill.bg)
+  
+  return(compound.sep)
+}
+
+```
+
+```{r}
+sig_pres_test <- function(compound.name, MSM_table, subs.all){
+  compound.spectra <-matrix(data=NA,nrow=96)
+  compound.key <- paste0(compound.name,"_")
+  compound.samples <- unique(subs.all[grep(compound.key, subs.all[,3]),"Sample" ,])
+  sig.name <- MSM_table[MSM_table$Sample.Name == compound.name,2]
+  
+  for (compound.subtype in compound.samples){
+    # print(compound.subtype)
+    if(is.na(compound.spectra[1]))
+      compound.spectra <- Jill_to_SBS96(subs.all[grep(compound.subtype, subs.all[,3]), ,drop = FALSE])
+    else
+      compound.spectra <- cbind(compound.spectra,
+                                Jill_to_SBS96(subs.all[grep(compound.subtype, subs.all[,3]), ,drop = FALSE]))
+  }
+  colnames(compound.spectra)<-compound.samples
+  
+  seps <- sep_comp_bg(compound.name ,subs.all, MSM_table, jill.bg)
+  two.sigs <- cbind(seps$inferred.target.sig.as.catalog, 
+                    jill.bg$background.sig)
+  
+  m.opts <- mSigAct::DefaultManyOpts()
+  retval <- mSigAct::SignaturePresenceTest(
+    spectra          = compound.spectra,
+    sigs             = two.sigs,
+    target.sig.index = 1,
+    # eval_f           = mSigAct::ObjFnBinomMaxLHNoRoundOK,
+    m.opts           = m.opts)
+  
+  #View(retval)
+  ret <- lapply(retval, function(x) x$chisq.p)
+  names(ret) <- paste(names(ret), sig.name, sep = "_")
+  
+  return(ret)
+}
+```
+
+# Prepare the data needed
+Read Input from Jill Kucab's data
+```{r}
+sig.all <- read.table("Jill_Mutagen53_sub_signature.txt",header = TRUE, sep ="\t")
+
+subs.all <- read.table("Jill_denovo_subclone_subs_final.txt",header = TRUE, sep ="\t")
+```
+
+```{r}
+# REMOVE X IN "X1.8.DNP..0.125.uM." for sig.name column names for MSM_table matching 
+for (i in 1:length(colnames(sig.all))){
+  if (substring(colnames(sig.all)[i], 1, 1) =="X")
+    colnames(sig.all)[i] <- substring(colnames(sig.all)[i],2)
+}
+```
+
+```{r}
+# Creating a table to map MSM code to sig.name 
+MSM_table <- read.table("MSM_table", header = TRUE, sep = "\t") #, col.names=c("Sample.Name", "Treatment") )
+names <- gsub(" ", ".",MSM_table[,2])
+names <- gsub("\\(", ".",names)
+names <- gsub("\\)", ".",names)
+names <- gsub("\\+", ".",names)
+names <- gsub(",",".",names)
+names <- gsub("-",".",names)
+MSM_table[,2] <- names
+```
+
+```{r}
+# MSM0.11	Temozolomide..200.uM.			
+# MSM0.75	Temozolomide..200.uM.
+# in the MSM table provided, two MSM codes are mapped to the same signature name
+# in Signature names, one is named as Temozolomide..200.uM..1
+# Here we assume that MSM0.75 is named as Temozolomide..200.uM..1
+MSM_table[MSM_table[1]=="MSM0.75",2] <- "Temozolomide..200.uM..1"
+```
+
+```{r}
+# separate the samples in subs.all
+
+if (!file.exists("jill.all.spectra.Rdata")){
+  by.sample <- split(subs.all, subs.all$Sample.Name) # output a list grouped by Sample.Name
+  all.spectra <- lapply(by.sample, Jill_to_SBS96)
+  save(all.spectra, file = "jill.all.spectra.Rdata")
+}else{
+  load("jill.all.spectra.Rdata")
+}
+
+  
+alls <- do.call(cbind, all.spectra)
+rownames(MSM_table) <- MSM_table$Sample.Name
+colnames(alls) <- paste(colnames(alls), MSM_table[colnames(alls), "Treatment"])
+ICAMS::PlotCatalogToPdf(alls, "jill.all.pdf")
+
+ICAMS::PlotCatalogToPdf(alls[ , grepl("Control", colnames(alls), fixed = TRUE)], "jill.control.pdf")
+
+jill_ctrl_spectra <- alls[ , grepl("Control", colnames(alls), fixed = TRUE)]
+```
+
+```{r}
+all.names <- unique(subs.all["Sample.Name"])
+ctrl.names <- c("MSM0.118","MSM0.119","MSM0.131","MSM0.4",
+                "MSM0.86","MSM0.9","MSM0.1","MSM0.45","MSM0.8",
+                "MSM0.128","MSM0.129","MSM0.120","MSM0.127",
+                "MSM0.6","MSM0.37")
+```
+
+# Generate BG info 
+```{r}
+jill.bg <- MakeBackgroundInfo(jill_ctrl_spectra)
+```
+
+```{r, fig.height=1.5, fig.width=10}
+pcat(jill.bg$background.sig)
+```
+# Testing!
+## Exploring Signature Presence 
+### scripting for all samples 
+```{r}
+ctrl.msm <- MSM_table[grep("Control", MSM_table[,2]),1]  
+i <- ctrl.msm[15]
+ctrl.i <- c()
+for (i in ctrl.msm[1:10]){
+  ctrl.i <- c(ctrl.i,all.names[all.names[1] == i])
+}
+ctrl.i
+```
+
+```{r}
+ctrl.sig.pres.test <- mclapply(ctrl.i, function(x){sig_pres_test(x, MSM_table, subs.all)}, mc.cores = 10L)
+names(ctrl.sig.pres.test) <- ctrl.i
+View(ctrl.sig.pres.test)
+```
+
+
+```{r}
+
+```
+
+
+### For one sample
+Signature presence test
+Problem: signature presence test test for whether the spectra can be reconstructed without the target signature 
+BUT for our case we need to consider the counts (i.e. if input spectra has similar pattern AND counts to background, the signature may not be legitimate)
+
+#### Test diff between using all.spectra & subtype-based spectra
+```{r}
+
+compound.name <- "MSM0.118"
+
+# compound.name <- compounds[2]  # "MSM0.47" "MMS..100.uM."
+# compound.name <- compounds[99] # "MSM0.118" "DMSO.Control..0.5%....HS9"
+
+print(compound.name)
+compound.spectra <-matrix(data=NA,nrow=96)
+compound.key <- paste0(compound.name,"_")
+compound.samples <- unique(subs.all[grep(compound.key, subs.all[,3]),"Sample" ,])
+
+sig.name <- MSM_table[MSM_table$Sample.Name == compound.name,2]
+
+if(sig.name %in% colnames(sig.all)){
+  print("It is identified as Signature by Jill")
+}else{
+  print("Jill says there's no signature!")
+}
+
+print(sig.name)
+for (compound.subtype in compound.samples){
+  # print(compound.subtype)
+  if(is.na(compound.spectra[1]))
+    compound.spectra <- Jill_to_SBS96(subs.all[grep(compound.subtype, subs.all[,3]), ,drop = FALSE])
+  else
+    compound.spectra <- cbind(compound.spectra,
+                              Jill_to_SBS96(subs.all[grep(compound.subtype, subs.all[,3]), ,drop = FALSE]))
+}
+colnames(compound.spectra)<-compound.samples
+
+system.time(compound.sep <- one.separation(compound.name, compound.spectra, jill.bg))
+```
+
+
+```{r}
+two.sigs <- cbind(compound.sep$inferred.target.sig.as.catalog, 
+                  jill.bg$background.sig)
+
+m.opts <- mSigAct::DefaultManyOpts()
+retval <- mSigAct::SignaturePresenceTest(
+  spectra          = compound.spectra,
+  sigs             = two.sigs,
+  target.sig.index = 1,
+  # eval_f           = mSigAct::ObjFnBinomMaxLHNoRoundOK,
+  m.opts           = m.opts)
+
+lapply(retval, function(x) x$chisq.p)
+```
+
+```{r}
+lapply(retval, function(x) x$chisq.p)
+```
+
+```{r}
+philentropy::cosine_dist(compound.sep$inferred.target.sig.as.catalog, 
+                  jill.bg$background.sig, testNA = FALSE)
+```
+
+
+
+# Case Studies 
+-----------------------------------------------------------------------------------------------------------------------------------------------
+### Case study: Control samples by Jill, Will there be signatures after Rozen Method?
+```{r}
+
+```
+
+
+inferred target sig
+```{r, fig.height=1.5, fig.width=10}
+pcat(compound.sep$inferred.target.sig.as.catalog)
+```
+background sig 
+```{r, fig.height=1.5, fig.width=10}
+pcat(jill.bg$background.sig)
+```
+
+Inferred spectra with Rozen Method
+```{r, fig.height=3, fig.width=10}
+pcat(infer_spec_M1(compound.spectra, compound.sep))
+```
+
+
+------------------------------------------------------------------------------------------------------------------------------------------------------
+### Case study: No signature by Jill, Will there be signature after Rozen Method?
+"MSM0.47" "MMS..100.uM."
+
+Input spectra 
+```{r, fig.height=3, fig.width=10}
+pcat(compound.spectra)
+```
+Inferred signature with Rozen Method
+```{r, fig.height=1.5, fig.width=10}
+pcat(compound.sep$inferred.target.sig.as.catalog)
+```
+
+Inferred spectra with Rozen Method
+```{r, fig.height=3, fig.width=10}
+pcat(infer_spec_M1(compound.spectra, compound.sep))
+```
+
+```{r, fig.height=1.5, fig.width=10}
+pcat(jill.bg$background.sig)
+```
+
+```{r,fig.height=4.5, fig.width=10}
+pcat(jill.bg$input.spectra[,1:3])
+```
+
+```{r}
+
+compounds <- all.names[86,1]
+tmp.all <- mclapply(compounds, function(x){sep_comp_bg(x,subs.all, MSM_table, jill.bg)}, mc.cores = 1L)
+names(tmp.all) <- names(compounds)
+
+```
+
+```{r}
+all.compound.sep <- list()
+all.cosine <- c()
+```
+
+```{r}
+save(all.compound.sep,file = "Jill.all.compound.sep.Rdata")
+save(all.cosine,file = "Jill.all.cosine.Rdata")
+```

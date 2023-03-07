@@ -4,15 +4,19 @@ author: "Xinyi"
 date: "2023-02-28"
 output: html_document
 ---
-Description: this file compares the similarity between signatures after background separation using our method and the signature published by Jill (Using Jill's background separation methods). 
+Description: 
+This file compares the similarity between signatures after background separation using our method and the signature published by Jill (Using Jill's background separation methods). 
+
 
 # Load packages
 ```{r}
 library(ICAMS)
+library(mSigAct)
 library(philentropy)
 library(factoextra)
 library(gplots)
 library(nloptr)
+ library(parallel)
 devtools::load_all(".")
 ```
 
@@ -113,15 +117,45 @@ one.separation <- function(sig.name, spectra, bg.sig.info, my.seed = 101010) {
     spectra          = spectra,
     bg.sig.info      = bg.sig.info,
     m.opts           = NULL,
-    start.b.fraction = 0.5,
+    # start.b.fraction = 0.5,
+    # 0.1 - 0.49 is ok & 0.6 
+    # 0.499 starts the hanging problem
+    start.b.fraction = 0,
     sig.name         = sig.name
   )
-
+  
   return(ret)
 }
 ```
 
-# Read Input from Jill Kucab's data
+```{r}
+sep_comp_bg <- function(compound.name, subs.all, MSM_table, jill.bg){
+  
+  compound.spectra <-matrix(data=NA,nrow=96)
+  compound.key <- paste0(compound.name,"_")
+  compound.samples <- unique(subs.all[grep(compound.key, subs.all[,3]),"Sample" ,])
+  sig.name <- MSM_table[MSM_table$Sample.Name == compound.name,2]
+  
+  
+  for (compound.subtype in compound.samples){
+    if(is.na(compound.spectra[1]))
+      compound.spectra <- Jill_to_SBS96(subs.all[grep(compound.subtype, subs.all[,3]), ,drop = FALSE])
+    else
+      compound.spectra <- cbind(compound.spectra,
+                                Jill_to_SBS96(subs.all[grep(compound.subtype, subs.all[,3]), ,drop = FALSE]))
+  }
+  colnames(compound.spectra)<-compound.samples
+  
+  compound.sep <- one.separation(compound.name, compound.spectra, jill.bg)
+  
+  return(compound.sep)
+}
+
+```
+
+
+# Prepare the data needed
+Read Input from Jill Kucab's data
 ```{r}
 sig.all <- read.table("Jill_Mutagen53_sub_signature.txt",header = TRUE, sep ="\t")
 
@@ -159,8 +193,16 @@ MSM_table[MSM_table[1]=="MSM0.75",2] <- "Temozolomide..200.uM..1"
 
 ```{r}
 # separate the samples in subs.all
-by.sample <- split(subs.all, subs.all$Sample.Name) # output a list grouped by Sample.Name
-all.spectra <- lapply(by.sample, Jill_to_SBS96)
+
+if (!file.exists("jill.all.spectra.Rdata")){
+  by.sample <- split(subs.all, subs.all$Sample.Name) # output a list grouped by Sample.Name
+  all.spectra <- lapply(by.sample, Jill_to_SBS96)
+  save(all.spectra, file = "jill.all.spectra.Rdata")
+}else{
+  load("jill.all.spectra.Rdata")
+}
+
+  
 alls <- do.call(cbind, all.spectra)
 rownames(MSM_table) <- MSM_table$Sample.Name
 colnames(alls) <- paste(colnames(alls), MSM_table[colnames(alls), "Treatment"])
@@ -177,10 +219,9 @@ ctrl.names <- c("MSM0.118","MSM0.119","MSM0.131","MSM0.4",
                 "MSM0.86","MSM0.9","MSM0.1","MSM0.45","MSM0.8",
                 "MSM0.128","MSM0.129","MSM0.120","MSM0.127",
                 "MSM0.6","MSM0.37")
-
 ```
 
-Generate BG info 
+# Generate BG info 
 ```{r}
 jill.bg <- MakeBackgroundInfo(jill_ctrl_spectra)
 ```
@@ -188,7 +229,85 @@ jill.bg <- MakeBackgroundInfo(jill_ctrl_spectra)
 ```{r, fig.height=1.5, fig.width=10}
 pcat(jill.bg$background.sig)
 ```
+# Testing!
+## Hanging problem testing ground 
+```{r, echo=FALSE}
+# compounds <- all.names[,1]
+# compound.name <- compounds[99]
+# 
+# # compound.name <- compounds[2]  # "MSM0.47" "MMS..100.uM."
+# # compound.name <- compounds[99] # "MSM0.118" "DMSO.Control..0.5%....HS9"
+# 
+# # problematic 86: causing hanging problem at start.b.fraction = 0.5
+# 
+# print(compound.name)
+# compound.spectra <-matrix(data=NA,nrow=96)
+# compound.key <- paste0(compound.name,"_")
+# compound.samples <- unique(subs.all[grep(compound.key, subs.all[,3]),"Sample" ,])
+# 
+# sig.name <- MSM_table[MSM_table$Sample.Name == compound.name,2]
+# 
+# if(sig.name %in% colnames(sig.all)){
+#   print("It is identified as Signature by Jill")
+# }else{
+#   print("Jill says there's no signature!")
+# }
+# 
+# print(sig.name)
+# for (compound.subtype in compound.samples){
+#   # print(compound.subtype)
+#   if(is.na(compound.spectra[1]))
+#     compound.spectra <- Jill_to_SBS96(subs.all[grep(compound.subtype, subs.all[,3]), ,drop = FALSE])
+#   else
+#     compound.spectra <- cbind(compound.spectra,
+#                               Jill_to_SBS96(subs.all[grep(compound.subtype, subs.all[,3]), ,drop = FALSE]))
+# }
+# colnames(compound.spectra)<-compound.samples
+# 
+# 
+# system.time(compound.sep <- one.separation(compound.name, compound.spectra, jill.bg))
 
+```
+
+
+### Log for testing 
+problematic 86: causing hanging problem at start.b.fraction = 0.5
+
+b.frac = 0
+   user  system elapsed 
+ 33.054   0.057  33.092 
+ 
+b.frac = 0.1
+   user  system elapsed 
+108.465   0.281 108.696 
+
+b.frac = 0.49 
+   user  system elapsed 
+ 30.340   0.057  30.396 
+ 
+b.frac = 0.51
+   user  system elapsed 
+ 32.824   0.144  32.951 
+ 
+b.frac = 0.9
+   user  system elapsed 
+107.827   0.238 108.008 
+
+b.frac = 1
+   user  system elapsed 
+ 35.504   0.061  35.545 
+
+
+# The multi-core parallel mclapply
+```{r}
+
+compounds <- all.names[86,1]
+tmp.all <- mclapply(compounds, function(x){sep_comp_bg(x,subs.all, MSM_table, jill.bg)}, mc.cores = 1L)
+names(tmp.all) <- names(compounds)
+
+```
+
+# The not-so-smart forloop
 ```{r}
 all.compound.sep <- list()
 all.cosine <- c()
@@ -223,9 +342,21 @@ for(compound.name in compounds){
     }
     colnames(compound.spectra)<-compound.samples
 
+    
     compound.sep <- one.separation(compound.name, compound.spectra, jill.bg)
+    
+    tmp.ret <- SeparateSignatureFromBackground(compound.spectra, jill.bg, m.opts = NULL, start.b.fraction = 0.1)
+    
+    tmp.ret2 <- SeparateSignatureAndSpectra(compound.spectra,
+                                           jill.bg,
+                                           m.opts = NULL,
+                                           # start.b.fraction = 0.1, # this works
+                                           start.b.fraction = 0.5,
+                                           sig.name = "Inferred.sig")
+    
 
-    # store the sep file for furture use
+    
+    nu# store the sep file for furture use
     if(length(all.compound.sep)==0){
       all.compound.sep <- list(compound.sep)
       names(all.compound.sep) <- sig.name
