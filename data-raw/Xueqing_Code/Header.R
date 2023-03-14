@@ -89,6 +89,8 @@ bootstrapGenomesfun <- function(genomes){
   
   return(apply(genomes, 2, function(x) rmultinom(1, sum(x), x)))
 }
+
+
 cos_similarity <- function(v1,v2){
   v1v2 <- sum(v1*v2)
   v1_length <- sqrt(sum(v1*v1))
@@ -108,6 +110,8 @@ ExtractSig_centroid_subs_noerrorbar <- function(control_profile_set, compound_pr
     
     min_b <- 1
     max_b <- 0
+    
+    # pair wise cosine similarity between the subclones of given compound
     for(j in 1:dim(compound_profile_set)[2]){
       if((j+1)<=dim(compound_profile_set)[2]){
         for(k in (j+1):dim(compound_profile_set)[2]){
@@ -121,7 +125,6 @@ ExtractSig_centroid_subs_noerrorbar <- function(control_profile_set, compound_pr
     stability_sig <- c(min_b,max_b)
     
   }
-  
   
   compound_sig <- RemoveBackground_centroid(control_profile_set,compound_profile_set,1000,1.65)
   compound_sig$MutationType <- rownames(compound_sig)
@@ -191,6 +194,8 @@ RemoveBackground_single <- function(background_profile_set, sig_profile,boundary
   return(diff_all)
   
 }
+
+
 RemoveBackground_centroid <- function(background_profile_set, sig_profile_set, sampling_number,boundary){
   
   # Range of background
@@ -203,7 +208,8 @@ RemoveBackground_centroid <- function(background_profile_set, sig_profile_set, s
   for(bt_num in 1:sampling_number){
     
     RepCompound <- sig_profile_set[,sample(1:dim(sig_profile_set)[2],dim(sig_profile_set)[2],replace = T)]
-    bootstrapCompound <- bootstrapGenomesfun(RepCompound)
+    # how many multinomial bootstrap rounds depends on the number of column of the compound
+    bootstrapCompound <- bootstrapGenomesfun(RepCompound) 
     
     diff_all_boundary <- rowMeans(bootstrapCompound)-boundary_background
     diff_all <- rowMeans(bootstrapCompound)-centroid_background

@@ -45,67 +45,6 @@ pcat <- function(catalog) {
 ```
 
 ```{r}
-convert_base <- function(x){
-  if (x == "A")
-    ret <- "T"
-  else if (x == "C")
-    ret <- "G"
-  else if (x == "G")
-    ret <- "C"
-  else if (x == "T")
-    ret <- "A"
-  else{
-    message("Incorrent input")
-    ret <- 0
-  }
-    
-  return(ret)
-}
-```
-
-```{r}
-Jill_to_SBS96 <- function(input_table){
-  subs <- input_table[,c("pre_context","Ref","rear_context","Alt")]
-  for (i in 1:nrow(input_table)){
-    if (subs[i,2] == "A" | subs[i,2] =="G"){
-      tmp1 <- convert_base(subs[i,1])
-      tmp2 <- convert_base(subs[i,2])
-      tmp3 <- convert_base(subs[i,3])
-      tmp4 <- convert_base(subs[i,4])
-      subs[i,1] <- tmp3
-      subs[i,2] <- tmp2
-      subs[i,3] <- tmp1
-      subs[i,4] <- tmp4
-    }
-  }
-  subs.pasted <- apply(subs, MARGIN = 1, function(x){paste0(x[1], x[2], x[3], x[4])})
-  SBS96.template <- c("ACAA", "ACCA", "ACGA", "ACTA", "CCAA", "CCCA", "CCGA", "CCTA", 
-                      "GCAA", "GCCA", "GCGA", "GCTA", "TCAA", "TCCA", "TCGA", "TCTA", 
-                      "ACAG", "ACCG", "ACGG", "ACTG", "CCAG", "CCCG", "CCGG", "CCTG", 
-                      "GCAG", "GCCG", "GCGG", "GCTG", "TCAG", "TCCG", "TCGG", "TCTG",
-                      "ACAT", "ACCT", "ACGT", "ACTT", "CCAT", "CCCT", "CCGT", "CCTT", 
-                      "GCAT", "GCCT", "GCGT", "GCTT", "TCAT", "TCCT", "TCGT", "TCTT", 
-                      "ATAA", "ATCA", "ATGA", "ATTA", "CTAA", "CTCA", "CTGA", "CTTA", 
-                      "GTAA", "GTCA", "GTGA", "GTTA", "TTAA", "TTCA", "TTGA", "TTTA", 
-                      "ATAC", "ATCC", "ATGC", "ATTC", "CTAC", "CTCC", "CTGC", "CTTC", 
-                      "GTAC", "GTCC", "GTGC", "GTTC", "TTAC", "TTCC", "TTGC", "TTTC", 
-                      "ATAG", "ATCG", "ATGG", "ATTG", "CTAG", "CTCG", "CTGG", "CTTG", 
-                      "GTAG", "GTCG", "GTGG", "GTTG", "TTAG", "TTCG", "TTGG", "TTTG") 
-  subs.spectra <- rep(0,96)
-  names(subs.spectra) <- SBS96.template
-  
-  # count occurrence 
-  for (i in subs.pasted){
-    subs.spectra[i] <- subs.spectra[i] + 1
-  }
-  
-  subs.cat <- as.catalog(as.matrix(subs.spectra), ref.genome = "GRCh37", region = "genome", catalog.type = "counts" , infer.rownames = TRUE)
-  
-  return(subs.cat)
-}
-```
-
-```{r}
 one.separation <- function(sig.name, spectra, bg.sig.info, my.seed = 101010) {
   
   set.seed(my.seed, kind = "L'Ecuyer-CMRG")
@@ -175,15 +114,15 @@ sig_pres_test <- function(compound.name, MSM_table, subs.all){
   two.sigs <- cbind(seps$inferred.target.sig.as.catalog, 
                     jill.bg$background.sig)
   
+  #m.opts <- mSigAct::DefaultManyOpts(likelihood.dist = "neg.binom")
   m.opts <- mSigAct::DefaultManyOpts()
+  
   retval <- mSigAct::SignaturePresenceTest(
     spectra          = compound.spectra,
     sigs             = two.sigs,
     target.sig.index = 1,
     # eval_f           = mSigAct::ObjFnBinomMaxLHNoRoundOK,
     m.opts           = m.opts)
-  
-  #View(retval)
   
   # Only return p-value
   # ret <- lapply(retval, function(x) x$chisq.p)
@@ -283,20 +222,22 @@ ctrl.i
 ```
 
 ```{r}
-# ctrl.sig.pres.test <- mclapply(ctrl.i, function(x){sig_pres_test(x, MSM_table, subs.all)}, mc.cores = 10L)
+#ctrl.sig.pres.test <- mclapply(ctrl.i, function(x){sig_pres_test(x, MSM_table, subs.all)}, mc.cores = 10L)
+
+# mSigAct:::PlotListOfCatalogsToPdf(list.of.catalogs = list(compound.spectra, as.catalog(ctrl.sig.pres.test[[1]]$compound.sep$inferred.target.sig, catalog.type = "counts.signature", infer.rownames = TRUE),jill.bg$background.sig), file = "foo.pdf")
+
 # names(ctrl.sig.pres.test) <- ctrl.i
 # View(ctrl.sig.pres.test)
 load("ctrl.sig.pres.test.Rdata")
 ```
 
-```{r}
+```{r, echo=FALSE}
 #View(ctrl.sig.pres.test)
 # Only 2 subclones have p>0.05 MSM0.131_s2 & MSM0.9_s6
-as.matrix(unlist(lapply(ctrl.sig.pres.test, function(x){lapply(x[-length(x)],function(z) z$chisq.p>0.05)})))
+# as.matrix(unlist(lapply(ctrl.sig.pres.test, function(x){lapply(x[-length(x)],function(z) z$chisq.p>0.05)})))
 # Only 4 subclones have p>0.001
-as.matrix(unlist(lapply(ctrl.sig.pres.test, function(x){lapply(x[-length(x)],function(z) z$chisq.p>0.001)})))
+# as.matrix(unlist(lapply(ctrl.sig.pres.test, function(x){lapply(x[-length(x)],function(z) z$chisq.p>0.001)})))
 ```
-
 
 1. print out the p value
 2. plot the inferred sig/spec
