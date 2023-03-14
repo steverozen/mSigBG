@@ -26,7 +26,6 @@ Imports:
     philentropy,
     RColorBrewer,
     stats,
-
 Suggests: 
     testthat,
     devtools,
