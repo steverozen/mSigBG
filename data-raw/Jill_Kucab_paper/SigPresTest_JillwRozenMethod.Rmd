@@ -328,6 +328,12 @@ for (i in potential.sig){
   print(all.sig.pres.test.paa[[i]])
 }
 ```
+```{r}
+for (i in all.compound.sep){
+  if (setequal(all.compound.sep[[1]]$inferred.target.sig.as.catalog, target_sig))
+    print(i)
+}
+```
 
 
 ### For one sample
@@ -393,72 +399,4 @@ lapply(retval, function(x) x$chisq.p)
 ```{r}
 philentropy::cosine_dist(compound.sep$inferred.target.sig.as.catalog, 
                   jill.bg$background.sig, testNA = FALSE)
-```
-
-# The Case Studies can be deleted. No longer relavent
-
-# Case Studies 
------------------------------------------------------------------------------------------------------------------------------------------------
-### Case study: Control samples by Jill, Will there be signatures after Rozen Method?
-```{r}
-
-```
-
-
-inferred target sig
-```{r, fig.height=1.5, fig.width=10}
-pcat(compound.sep$inferred.target.sig.as.catalog)
-```
-background sig 
-```{r, fig.height=1.5, fig.width=10}
-pcat(jill.bg$background.sig)
-```
-
-Inferred spectra with Rozen Method
-```{r, fig.height=3, fig.width=10}
-pcat(infer_spec_M1(compound.spectra, compound.sep))
-```
-
-
-------------------------------------------------------------------------------------------------------------------------------------------------------
-### Case study: No signature by Jill, Will there be signature after Rozen Method?
-"MSM0.47" "MMS..100.uM."
-
-Input spectra 
-```{r, fig.height=3, fig.width=10}
-pcat(compound.spectra)
-```
-Inferred signature with Rozen Method
-```{r, fig.height=1.5, fig.width=10}
-pcat(compound.sep$inferred.target.sig.as.catalog)
-```
-
-Inferred spectra with Rozen Method
-```{r, fig.height=3, fig.width=10}
-pcat(infer_spec_M1(compound.spectra, compound.sep))
-```
-
-```{r, fig.height=1.5, fig.width=10}
-pcat(jill.bg$background.sig)
-```
-
-```{r,fig.height=4.5, fig.width=10}
-pcat(jill.bg$input.spectra[,1:3])
-```
-
-```{r}
-compounds <- all.names[86,1]
-tmp.all <- mclapply(compounds, function(x){sep_comp_bg(x,subs.all, MSM_table, jill.bg)}, mc.cores = 1L)
-names(tmp.all) <- names(compounds)
-
-```
-
-```{r}
-all.compound.sep <- list()
-all.cosine <- c()
-```
-
-```{r}
-save(all.compound.sep,file = "Jill.all.compound.sep.Rdata")
-save(all.cosine,file = "Jill.all.cosine.Rdata")
 ```

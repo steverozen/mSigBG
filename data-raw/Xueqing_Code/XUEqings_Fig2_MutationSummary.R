@@ -4,6 +4,9 @@ source("Header.R")
 samples_details <- read.table("final_mutagen_info_forR_v4_u.txt",sep = "\t",header = T,as.is = T, quote="\"")
 
 sub_tab_all_info <- read.table("denovo_subclone_subs_final.txt",sep = "\t",header = T, as.is = T)
+
+
+
 sub_tab_all_info <- sub_tab_all_info[sub_tab_all_info$PM.Tum>=0.2,] # 172480/183133 = 0.94
 sub_tab_all_info$Sample.Name <- sub("\\_.*","",sub_tab_all_info$Sample)
 sub_tab_all_info <- sub_tab_all_info[sub_tab_all_info$Sample.Name!="MSM0",]

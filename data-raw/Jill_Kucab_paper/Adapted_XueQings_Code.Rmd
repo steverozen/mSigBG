@@ -1,0 +1,492 @@
+---
+title: "Adapted_XueQings_Code"
+author: "Xinyi"
+date: "2023-03-14"
+output: html_document
+---
+Description: this document puts XueQing's code into easily usable functions.
+The functions coded in this markdown include: 
+calculate_SNR: Signal-to-Noise Ratio Calculation
+test_sig_pval: P-value Calculation (whether the signature is presence)
+BackgroundSeparation: Background separation/Target signature extraction
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Package prep
+```{r}
+library(ICAMS)
+library(plyr)
+library(philentropy)
+devtools::load_all(".")
+```
+```{r}
+pcat <- function(catalog) {
+  par(pin = c(3*ncol(catalog), 1))
+  par(mfrow = c(ncol(catalog), 1))
+  par(mar = c(2, 4, 4, 2))
+  par(cex = 0.8)
+  par(cex.main = 1.4) 
+  xlabels <- FALSE
+  for (i in 1:ncol(catalog)) {
+    if (FALSE && i == ncol(catalog)) { # FALSE an experiment
+      xlabels <- TRUE
+      par(mar = c(4.5, 4, 3, 2))
+    }
+    
+    ICAMS::PlotCatalog(catalog[ , i, drop = FALSE],
+                       upper = (i == 1),
+                       xlabels = xlabels)
+  }
+}
+```
+
+
+# Input files 
+```{r}
+# signature table 
+sig.all <- read.table("Jill_Mutagen53_sub_signature.txt",header = TRUE, sep ="\t")
+
+# mutation table raw
+# subs.all == sub_tab_all_info
+subs.all <- read.table("Jill_denovo_subclone_subs_final.txt",header = TRUE, sep ="\t")
+
+samples_details <- read.table("final_mutagen_info_forR_v4_u.txt",sep = "\t",header = T,as.is = T, quote="\"")
+
+# all.spectra 
+if (!file.exists("jill.all.spectra.Rdata")){
+  by.sample <- split(subs.all, subs.all$Sample.Name) # output a list grouped by Sample.Name
+  all.spectra <- lapply(by.sample, Jill_to_SBS96)
+  save(all.spectra, file = "jill.all.spectra.Rdata")
+}else{
+  load("jill.all.spectra.Rdata")
+}
+
+# all.subclone.spectra
+if (!file.exists("jill.all.subclone.spectra.Rdata")){
+  by.sample <- split(subs.all, subs.all$Sample) # output a list grouped by Sample.Name
+  all.subclone.spectra <- lapply(by.sample, Jill_to_SBS96)
+  save(all.subclone.spectra, file = "jill.all.subclone.spectra.Rdata")
+}else{
+  load("jill.all.subclone.spectra.Rdata")
+}
+```
+
+Other manipulations
+```{r, echo=FALSE}
+# REMOVE X IN "X1.8.DNP..0.125.uM." for sig.name column names for MSM_table matching 
+for (i in 1:length(colnames(sig.all))){
+  if (substring(colnames(sig.all)[i], 1, 1) =="X")
+    colnames(sig.all)[i] <- substring(colnames(sig.all)[i],2)
+}
+```
+
+```{r, echo=FALSE}
+# Creating a table to map MSM code to sig.name 
+MSM_table <- read.table("MSM_table", header = TRUE, sep = "\t") #, col.names=c("Sample.Name", "Treatment") )
+names <- gsub(" ", ".",MSM_table[,2])
+names <- gsub("\\(", ".",names)
+names <- gsub("\\)", ".",names)
+names <- gsub("\\+", ".",names)
+names <- gsub(",",".",names)
+names <- gsub("-",".",names)
+MSM_table[,2] <- names
+```
+
+
+```{r, echo=FALSE}
+# MSM0.11	Temozolomide..200.uM.			
+# MSM0.75	Temozolomide..200.uM.
+# in the MSM table provided, two MSM codes are mapped to the same signature name
+# in Signature names, one is named as Temozolomide..200.uM..1
+# Here we assume that MSM0.75 is named as Temozolomide..200.uM..1
+MSM_table[MSM_table[1]=="MSM0.75",2] <- "Temozolomide..200.uM..1"
+```
+
+
+# Jill's data & processing
+```{r}
+# processing Jill's data 
+sub_tab_all_info <- subs.all
+
+sub_tab_all_info <- sub_tab_all_info[sub_tab_all_info$PM.Tum>=0.2,] # 172480/183133 = 0.94
+sub_tab_all_info$Sample.Name <- sub("\\_.*","",sub_tab_all_info$Sample)
+sub_tab_all_info <- sub_tab_all_info[sub_tab_all_info$Sample.Name!="MSM0",]
+
+# sub.summary contains the compound identifier and the total mutation counts 
+sub.summary <- data.frame(table(sub_tab_all_info$Sample))
+names(sub.summary) <- c("Sample","sub_num")
+sub.summary$Sample.Name <- sub("\\_.*","",sub.summary$Sample)
+
+muts_summary_ddply <- ddply(sub.summary,c("Sample.Name"),summarise,NChild=length(sub_num),mean=mean(sub_num),sd=sd(sub_num),se=sd/sqrt(NChild))
+
+muts_summary_ddply_details <- merge(muts_summary_ddply, samples_details, by="Sample.Name")
+muts_summary_details <- merge(sub.summary, samples_details, by="Sample.Name")
+
+
+muts_summary_ddply_details_order <- muts_summary_ddply_details
+
+# all the compounds with #subclones, mean, sd etc.
+muts_compound_ddply <- muts_summary_ddply_details_order[muts_summary_ddply_details_order$Group!="a_Control",]
+muts_compound <- muts_summary_details[muts_summary_details$Group!="a_Control",]
+
+# all the controls with #subclones, mean, sd etc.
+muts_control <- muts_summary_details[muts_summary_details$Group=="a_Control",]
+
+# CREATE something to check the number of subclone in given sample!!
+```
+
+# All the functions 
+## SNR Calculation 
+```{r}
+# supplementary functions for calculate_SNR
+cos_similarity <- function(v1,v2){
+  v1v2 <- sum(v1*v2)
+  v1_length <- sqrt(sum(v1*v1))
+  v2_length <- sqrt(sum(v2*v2))
+  return(v1v2/v1_length/v2_length)
+}
+
+sd_highD <- function(target_matrix, direction){
+  
+  centroid <- rowMeans(target_matrix)
+  target_matrix_diff <- target_matrix-centroid
+  
+  # (norm(as.matrix(x),"f"): sqrt(sum of square of a column in target_matrix_diff)
+  # cos_similarity(x,direction))^2: square of cosine sim of a column in target_matrix_diff
+  cos_vector_square <- apply(target_matrix_diff,2,function(x) (norm(as.matrix(x),"f")  *
+                                                                 #philentropy::cosine_dist(x,direction, testNA = T) # results are slightly different with philentropy cossim
+                                                                 cos_similarity(x,direction)
+                                                               )^2)
+  sd_matrix <- sqrt(sum(cos_vector_square)/(dim(target_matrix_diff)[2]-1))
+  return(sd_matrix)
+  
+}
+```
+
+```{r}
+# INPUT
+# compound_profile: a matrix, the spectra of all the subclones of given compound 96 x #ofSubclone
+# control_profile: a matrix, the spectra of all the subclones of all the controls 
+
+# OUTPUT 
+# SNR: a single number representing the single-to-noise ratio
+calculate_SNR <- function(compound_profile,control_profile){
+  
+  chosen_control_all <- NULL
+  for(j in 1:1000){
+    chosen_control <- apply(control_profile,1,function(x) x[sample(1:length(x),1,replace=T)]) 
+    # performed on rows: given mutation type, resample the 35 columns 
+    
+    chosen_control_all <- rbind(chosen_control_all,chosen_control)
+  }
+  chosen_control_muts <- t(chosen_control_all)
+  chosen_control_muts <- as.data.frame(chosen_control_muts)
+  centroid_control <- rowMeans(chosen_control_muts)
+  
+  # permutation # sample the current compound 1000 times 
+  chosen_compound_all <- NULL
+  for(j in 1:1000){
+    chosen_compound <- apply(compound_profile,1,function(x) x[sample(1:length(x),1,replace=T)])
+    chosen_compound_all <- rbind(chosen_compound_all,chosen_compound)
+  }
+  chosen_compound_all <- t(chosen_compound_all)
+  chosen_compound_all <- as.data.frame(chosen_compound_all)
+  # mean/estimated mutation profile of current compound
+  centroid_compound <- rowMeans(chosen_compound_all) 
+  
+  # centroid_compound-centroid_control set the DIRECTION for cos_sim
+  sd_compound <- sd_highD(chosen_compound_all,centroid_compound-centroid_control) 
+  sd_control<- sd_highD(chosen_control_muts,centroid_compound-centroid_control)
+  
+  SNR  <-
+    norm(as.matrix(centroid_compound-centroid_control),"f")/(sd_compound+sd_control)
+  
+  return(SNR)
+}
+```
+
+
+```{r}
+# how to use the function with Xueqing's data
+
+# all.subclone.spectra == sub_catalogue 
+sub_catalogue <- as.data.frame(all.subclone.spectra)
+
+control_profile <- sub_catalogue[,as.character(muts_control[,"Sample"])]
+compound_profile <- sub_catalogue[, c("MSM0.10_s1","MSM0.10_s2","MSM0.10_s3")]
+
+calculate_SNR(compound_profile,control_profile)
+#   Sample.Name Freq profile_SNR
+# 1     MSM0.10    3    3.300523
+
+# [1] 3.365307
+```
+
+## Pvalue Calculation
+
+```{r}
+# INPUT 
+# compound_mean_mut: a number, average of # mut of all sub-clones of the compound
+# all_control_mut_count: a vector, average of # sub-clone mutation count for each sample in control
+# n_subclone: a number, the number of subclones that the compound has
+
+# OUTPUT
+# a vector of pvalue & BH adjusted pvalue
+
+test_sig_pval <- function(compound_mean_mut, all_control_mut_count, n_subclone){
+  
+k <- n_subclone
+sel_parents_mean_all <- NULL
+for(j in 1:10000){
+  sel_idx <- sample(1:length(all_control_mut_count),k,replace=T) # sample k from all the controls 
+  sel_parents <- all_control_mut_count[sel_idx]
+  sel_parents_mean <- mean(sel_parents)
+  sel_parents_mean_all <- c(sel_parents_mean_all,sel_parents_mean)
+}
+#
+pvalue <- round(length(which(sel_parents_mean_all>round(compound_mean_mut)))
+                  /length(sel_parents_mean_all),digits = 4)
+adj.p <- round(p.adjust(pvalue, method = "BH"),4)
+
+return(c(pvalue,adj.p))
+}
+```
+
+```{r}
+# how to use the function with Xueqing's data
+# compound of interest is:
+# muts_compound_ddply[i,"Compound"]
+i <- 1
+n_subclone <- muts_compound_ddply[i,"NChild"]
+compound_mean_mut <- muts_compound_ddply[muts_compound_ddply$NChild==n_subclone,][i,"mean"]
+all_control_mut_count <- muts_control[,"sub_num"]
+
+test_sig_pval(compound_mean_mut, all_control_mut_count, n_subclone)
+```
+
+## Background separation/ Target signature extraction
+```{r}
+bootstrapGenomesfun <- function(genomes){
+  return(apply(genomes, 2, function(x) rmultinom(1, sum(x), x)))
+}
+```
+
+```{r}
+# INPUT
+# OUTPUT: Target signature after removing the background
+
+BackgroundSeparation <- function(background_profile, compound_profile, sampling_number,boundary){
+  
+  # Range of background
+  centroid_background <- rowMeans(background_profile)
+  sd_background <- apply(background_profile,1,sd)
+  boundary_background <- centroid_background+boundary*sd_background
+  
+  # Bootstrap subclones 
+  diff_mean_all <- NULL
+  for(bt_num in 1:sampling_number){
+    
+    RepCompound <- compound_profile[,sample(1:dim(compound_profile)[2],dim(compound_profile)[2],replace = T)]
+    # how many multinomial bootstrap rounds depends on the number of column of the compound
+    bootstrapCompound <- bootstrapGenomesfun(RepCompound) 
+    
+    diff_all_boundary <- rowMeans(bootstrapCompound)-boundary_background
+    diff_all <- rowMeans(bootstrapCompound)-centroid_background
+    
+    diff_all[which(diff_all_boundary<0)] <- 0
+    diff_mean_all <- cbind(diff_mean_all,diff_all)
+    
+  }
+  
+  diff_centroid_all <- rowMeans(diff_mean_all)
+  diff_quantile_all_sd <- apply(diff_mean_all,1,sd)
+  
+  pure_sig <- data.frame(cbind(diff_centroid_all,diff_quantile_all_sd))
+  names(pure_sig) <- c("centroid","sd")
+  
+  return(pure_sig)
+  
+}
+```
+
+
+```{r}
+control_profile <- sub_catalogue[,as.character(muts_control[,"Sample"])]
+compound_profile <- sub_catalogue[, c("MSM0.10_s1","MSM0.10_s2","MSM0.10_s3")]
+sampling_number <- 1000
+boundary <- 1.65
+sig <- BackgroundSeparation(control_profile, compound_profile, sampling_number, boundary) 
+```
+
+
+# Testing Ground
+### Test for Cisplatin (known to have signature )
+MSM0.83 Cisplatin..12.5.uM.
+```{r}
+control_profile <- sub_catalogue[,as.character(muts_control[,"Sample"])]
+compound_profile <- sub_catalogue[, c("MSM0.83_s1","MSM0.83_s2","MSM0.83_s3")]
+sampling_number <- 1000
+boundary <- 1.65
+
+n_subclone <- muts_compound_ddply[muts_compound_ddply["Sample.Name"]=="MSM0.83",][,2] #NChild
+compound_mean_mut <- muts_compound_ddply[muts_compound_ddply["Sample.Name"]=="MSM0.83",][,3] #mean
+all_control_mut_count <- muts_control[,"sub_num"]
+
+test_sig_pval(compound_mean_mut, all_control_mut_count, n_subclone)
+
+calculate_SNR(compound_profile,control_profile)
+
+sig <- BackgroundSeparation(control_profile, compound_profile, sampling_number, boundary) 
+
+```
+
+
+```{r, fig.width=10, fig.height=3}
+ICAMS::PlotCatalog(sig.all[,"Cisplatin..12.5.uM."]*sum(sig[,1]))
+```
+
+### Test for a manually enhanced unexposed control data 
+MSM0.45_s1 MSM0.45_s2 H2O.Control..0.1%.
+```{r}
+control_profile <- sub_catalogue[,as.character(muts_control[,"Sample"])]
+compound_profile <- sub_catalogue[, c("MSM0.45_s1","MSM0.45_s2")]
+sampling_number <- 1000
+boundary <- 1.65
+
+#n_subclone <- muts_compound_ddply[muts_compound_ddply["Sample.Name"]=="MSM0.45",][,2] #NChild
+n_subclone <- 2
+#compound_mean_mut <- muts_compound_ddply[muts_compound_ddply["Sample.Name"]=="MSM0.45",][,3] #mean
+compound_mean_mut <- sum(compound_profile)/n_subclone
+all_control_mut_count <- muts_control[,"sub_num"]
+
+test_sig_pval(compound_mean_mut, all_control_mut_count, n_subclone)
+
+calculate_SNR(compound_profile,control_profile)
+
+sigH2O <- BackgroundSeparation(control_profile, compound_profile, sampling_number, boundary) 
+```
+```{r}
+control_profile <- sub_catalogue[,as.character(muts_control[,"Sample"])]
+compound_profile <- sub_catalogue[, c("MSM0.45_s1","MSM0.45_s2")]*5
+sampling_number <- 1000
+boundary <- 1.65
+
+n_subclone <- 2
+compound_mean_mut <- sum(compound_profile)/n_subclone
+all_control_mut_count <- muts_control[,"sub_num"]
+
+test_sig_pval(compound_mean_mut, all_control_mut_count, n_subclone)
+
+calculate_SNR(compound_profile,control_profile)
+
+sigH2Ox5 <- BackgroundSeparation(control_profile, compound_profile, sampling_number, boundary) 
+```
+
+```{r, fig.width=10, fig.height=3}
+ICAMS::PlotCatalog(sigH2Ox5[,1])
+```
+
+```{r}
+control_profile <- sub_catalogue[,as.character(muts_control[,"Sample"])]
+compound_profile <- sub_catalogue[, c("MSM0.45_s1","MSM0.45_s2")]
+all_control_mut_count <- muts_control[,"sub_num"]
+sampling_number <- 1000
+boundary <- 1.65
+n_subclone <- 2
+subcolor <- c("C>A","C>G","C>T", "T>A", "T>C", "T>G")
+
+for (i in 0:5){
+  compound_profile <- sub_catalogue[, c("MSM0.45_s1","MSM0.45_s2")]
+  compound_profile[(1+i*16):(16*(i+1)),] <- compound_profile[(1+i*16):(16*(i+1)),]*5
+  compound_mean_mut <- sum(compound_profile)/n_subclone
+
+  print(subcolor[i+1])
+  print(test_sig_pval(compound_mean_mut, all_control_mut_count, n_subclone))
+
+  print(calculate_SNR(compound_profile,control_profile))
+
+  sigH2Ox5 <- BackgroundSeparation(control_profile, compound_profile, sampling_number, boundary) 
+}
+
+```
+
+### Compare the similarity between our and Jill's extracted signature
+```{r, fig.width=10, fig.height=3}
+ICAMS::PlotCatalog(sig[,1])
+```
+
+```{r}
+philentropy::cosine_dist(sig.all[,"Cisplatin..12.5.uM."],sig[,1],testNA = T)
+```
+
+
+
+```{r, fig.width=10, fig.height=3}
+ICAMS::PlotCatalog(sigH2O[,1])
+```
+separating MSM45 with rozen method
+```{r}
+sep_comp_bg <- function(compound.name, subs.all, MSM_table, jill.bg){
+  
+  compound.spectra <-matrix(data=NA,nrow=96)
+  compound.key <- paste0(compound.name,"_")
+  compound.samples <- unique(subs.all[grep(compound.key, subs.all[,3]),"Sample" ,])
+  sig.name <- MSM_table[MSM_table$Sample.Name == compound.name,2]
+  
+  
+  for (compound.subtype in compound.samples){
+    if(is.na(compound.spectra[1]))
+      compound.spectra <- Jill_to_SBS96(subs.all[grep(compound.subtype, subs.all[,3]), ,drop = FALSE])
+    else
+      compound.spectra <- cbind(compound.spectra,
+                                Jill_to_SBS96(subs.all[grep(compound.subtype, subs.all[,3]), ,drop = FALSE]))
+  }
+  colnames(compound.spectra)<-compound.samples
+  
+  compound.sep <- one.separation(compound.name, compound.spectra, jill.bg)
+  
+  return(compound.sep)
+}
+
+MSM0.45_sep <- sep_comp_bg("MSM0.45", subs.all, MSM_table, jill.bg)
+```
+
+```{r,fig.width=10, fig.height=3}
+ICAMS::PlotCatalog(MSM0.45_sep$inferred.target.spectra*5)
+```
+```{r}
+philentropy::cosine_dist(MSM0.45_sep$inferred.target.sig, sigH2Ox5[,1], testNA = T)
+```
+
+```{r,fig.width=10, fig.height=3}
+pcat(cbind(MSM0.45_sep$inferred.target.spectra[,1], sigH2O[,1]))
+```
+
+### Automate to all controls
+```{r}
+all.control.MSM <- sub("\\_.*","",colnames(control_profile))
+all.control.NChild <- table(all.control.MSM)
+all.control.NChild$subclone_index <- NULL
+
+control_profile <- sub_catalogue[,as.character(muts_control[,"Sample"])]
+
+sampling_number <- 1000
+boundary <- 1.65
+all_control_mut_count <- muts_control[,"sub_num"]
+
+
+
+for (i in 1:length(all.control.NChild[,1])){
+  compound_profile <- sub_catalogue[, c("MSM0.45_s1","MSM0.45_s2")]
+  n_subclone <- all.control.NChild[i,2]
+  compound_mean_mut <- sum(compound_profile)/n_subclone
+  
+  test_sig_pval(compound_mean_mut, all_control_mut_count, n_subclone)
+  calculate_SNR(compound_profile,control_profile)
+  sigH2O <- BackgroundSeparation(control_profile, compound_profile, sampling_number, boundary) 
+  
+}
+```
