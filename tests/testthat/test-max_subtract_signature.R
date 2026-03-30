@@ -82,3 +82,36 @@ test_that("max_subtract_signature returns zero when spectrum has no contribution
   # Should subtract very few mutations since sig_a channels are empty
   expect_lt(result$n_subtract, 50)
 })
+
+
+test_that("max_subtract_signature works with 476 features", {
+  set.seed(101)
+
+  sig_a <- runif(476); sig_a <- sig_a / sum(sig_a)
+  sig_b <- runif(476); sig_b <- sig_b / sum(sig_b)
+
+  n_a <- 2000
+  n_b <- 8000
+  spec_a <- as.numeric(rmultinom(1, size = n_a, prob = sig_a))
+  spec_b <- as.numeric(rmultinom(1, size = n_b, prob = sig_b))
+  spectrum <- spec_a + spec_b
+
+  result <- max_subtract_signature(spectrum, sig_a, target_prob = 0.01)
+
+  # With 476 channels the Poisson approximation is very conservative,
+  # so n_subtract will be much smaller than the true n_a.
+  # Just verify it subtracts something positive and doesn't overshoot.
+  expect_gt(result$n_subtract, 0)
+  expect_lt(result$n_subtract, n_a)
+
+  # Residual signature should still resemble sig_b (most of sig_b is preserved)
+  cos_sim <- lsa::cosine(result$residual_sig, sig_b)[1, 1]
+  expect_gt(cos_sim, 0.9)
+
+  # residual_sig is a valid probability distribution
+  expect_equal(sum(result$residual_sig), 1, tolerance = 1e-10)
+  expect_true(all(result$residual_sig >= 0))
+
+  # n_subtract + n_residual = N
+  expect_equal(result$n_subtract + result$n_residual, sum(spectrum))
+})
