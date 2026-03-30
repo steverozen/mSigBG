@@ -15,10 +15,11 @@ summing to 1) representing the signature to subtract. Can be a
 single-column matrix or a plain numeric vector of length
 matching \code{spectrum}.}
 
-\item{target_prob}{The target probability that a multinomial draw of
-\code{n_subtract} mutations from \code{sig_to_subtract} does not
-exceed the observed count in any channel. If \code{NULL}, defaults
-to 0.05 for spectra with <= 100 channels or 0.01 for longer spectra.}
+\item{target_prob}{The target joint probability that a Poisson-approximated
+multinomial draw of \code{n_subtract} mutations from
+\code{sig_to_subtract} does not exceed the observed count in any channel.
+A per-channel threshold is derived via the \enc{Šidák}{Sidak} correction:
+\code{target_prob^(1/n_channels)}.}
 }
 \value{
 A list with elements:
@@ -28,19 +29,24 @@ attributable to \code{sig_to_subtract}.}
 \item{\code{n_residual}}{Remaining mutations (\code{N - n_subtract}).}
 \item{\code{residual_sig}}{Residual signature profile (non-negative
 numeric vector summing to 1).}
-\item{\code{prob_no_exceed}}{The actual P(no exceed) at the
-estimated \code{n_subtract}.}
-\item{\code{target_prob}}{The target probability used.}
+\item{\code{min_channel_prob}}{The minimum per-channel P(not exceed) at
+the estimated \code{n_subtract}.}
+\item{\code{per_channel_threshold}}{The \enc{Šidák}{Sidak}-corrected
+per-channel threshold used.}
+\item{\code{target_prob}}{The target joint probability used.}
 }
 }
 \description{
 Given a single observed mutational spectrum and a known signature to subtract,
 find the maximum number of mutations (\code{n_subtract}) attributable to the
 known signature such that a Poisson-approximated multinomial draw of
-\code{n_subtract} mutations from \code{sig_to_subtract} has at least
-\code{target_prob} probability of not exceeding the observed spectrum count
-in any channel. In other words, for every channel \eqn{j}, the draw from
-\code{sig_to_subtract} should plausibly fit within the observed \code{spectrum[j]}.
+\code{n_subtract} mutations from \code{sig_to_subtract} plausibly fits
+within the observed spectrum. Specifically, for every channel \eqn{j},
+\code{P(Poisson(n_subtract * sig_j) <= spectrum_j)} must meet a
+per-channel threshold derived from \code{target_prob} using the
+\enc{Šidák}{Sidak} correction, which adjusts for the number of channels
+so that the result is approximately invariant to spectrum dimensionality
+(e.g., SBS96 vs SBS1536).
 
 The residual signature profile is computed by subtracting
 \code{n_subtract * sig_to_subtract} from the spectrum, clamping negative
