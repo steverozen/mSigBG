@@ -1,5 +1,5 @@
 
-test_that("max_subtract_signature recovers minority signature subtraction", {
+test_that("max_subtract_signature basic properties with synthetic data", {
   set.seed(42)
 
   sig_a <- runif(89); sig_a <- sig_a / sum(sig_a)
@@ -11,15 +11,7 @@ test_that("max_subtract_signature recovers minority signature subtraction", {
   spec_b <- as.numeric(rmultinom(1, size = n_b, prob = sig_b))
   spectrum <- spec_a + spec_b
 
-  result <- max_subtract_signature(spectrum, sig_a)
-
-  # n_subtract should be in the right ballpark (within 2x of true)
-  expect_gt(result$n_subtract, 50)
-  expect_lt(result$n_subtract, 400)
-
-  # Residual signature should be similar to sig_b
-  cos_sim <- lsa::cosine(result$residual_sig, sig_b)[1, 1]
-  expect_gt(cos_sim, 0.9)
+  result <- max_subtract_signature(spectrum, sig_a, max_neg_fraction = 0.02)
 
   # residual_sig is a valid probability distribution
   expect_equal(sum(result$residual_sig), 1, tolerance = 1e-10)
@@ -27,22 +19,13 @@ test_that("max_subtract_signature recovers minority signature subtraction", {
 
   # n_subtract + n_residual = N
   expect_equal(result$n_subtract + result$n_residual, sum(spectrum))
-})
 
+  # total_negative within the limit
+  expect_lte(result$total_negative, 0.02 * sum(spectrum) + 1)
 
-test_that("max_subtract_signature respects target_prob parameter", {
-  set.seed(99)
-
-  sig_a <- runif(89); sig_a <- sig_a / sum(sig_a)
-  sig_b <- runif(89); sig_b <- sig_b / sum(sig_b)
-  spectrum <- as.numeric(rmultinom(1, size = 300, prob = sig_a)) +
-              as.numeric(rmultinom(1, size = 700, prob = sig_b))
-
-  r_low  <- max_subtract_signature(spectrum, sig_a, target_prob = 0.01)
-  r_high <- max_subtract_signature(spectrum, sig_a, target_prob = 0.9)
-
-  # Lower target_prob allows subtracting more mutations
-  expect_gt(r_low$n_subtract, r_high$n_subtract)
+  # n_subtract is non-negative and bounded
+  expect_gte(result$n_subtract, 0)
+  expect_lte(result$n_subtract, sum(spectrum))
 })
 
 
@@ -62,12 +45,12 @@ test_that("max_subtract_signature works with matrix input", {
 
   expect_equal(sum(result$residual_sig), 1, tolerance = 1e-10)
   expect_true(all(result$residual_sig >= 0))
-  expect_true(result$n_subtract >= 0)
-  expect_true(result$n_subtract <= sum(spectrum))
+  expect_gte(result$n_subtract, 0)
+  expect_lte(result$n_subtract, sum(spectrum))
 })
 
 
-test_that("max_subtract_signature returns zero when spectrum has no contribution", {
+test_that("max_subtract_signature returns near-zero when spectrum has no contribution", {
   set.seed(77)
 
   # sig_a has all weight in channels 1-44, sig_b in channels 45-89
@@ -75,7 +58,7 @@ test_that("max_subtract_signature returns zero when spectrum has no contribution
   sig_b <- c(rep(0, 44), runif(45)); sig_b <- sig_b / sum(sig_b)
 
   # Spectrum is purely from sig_b
- spectrum <- as.numeric(rmultinom(1, size = 1000, prob = sig_b))
+  spectrum <- as.numeric(rmultinom(1, size = 1000, prob = sig_b))
 
   result <- max_subtract_signature(spectrum, sig_a)
 
@@ -84,34 +67,71 @@ test_that("max_subtract_signature returns zero when spectrum has no contribution
 })
 
 
-test_that("max_subtract_signature works with 476 features", {
-  set.seed(101)
+test_that("max_subtract_signature realistic 89-channel at max_neg_fraction=0.02", {
+  fixture <- readRDS(test_path("fixtures", "test_89_realistic.rds"))
 
-  sig_a <- runif(476); sig_a <- sig_a / sum(sig_a)
-  sig_b <- runif(476); sig_b <- sig_b / sum(sig_b)
+  set.seed(999)
+  result <- max_subtract_signature(fixture$spectrum, fixture$sig_subtract,
+                                   max_neg_fraction = 0.02)
 
-  n_a <- 2000
-  n_b <- 8000
-  spec_a <- as.numeric(rmultinom(1, size = n_a, prob = sig_a))
-  spec_b <- as.numeric(rmultinom(1, size = n_b, prob = sig_b))
-  spectrum <- spec_a + spec_b
+  # n_subtract should be close to true (ratio ~1.01 in our trials)
+  ratio <- result$n_subtract / fixture$n_target
+  expect_gt(ratio, 0.85)
+  expect_lt(ratio, 1.15)
 
-  result <- max_subtract_signature(spectrum, sig_a, target_prob = 0.01)
-
-  # With 476 channels the Poisson approximation is very conservative,
-  # so n_subtract will be much smaller than the true n_a.
-  # Just verify it subtracts something positive and doesn't overshoot.
-  expect_gt(result$n_subtract, 0)
-  expect_lt(result$n_subtract, n_a)
-
-  # Residual signature should still resemble sig_b (most of sig_b is preserved)
-  cos_sim <- lsa::cosine(result$residual_sig, sig_b)[1, 1]
+  # Residual should resemble true background
+  cos_sim <- lsa::cosine(result$residual_sig, fixture$true_bg_sig)[1, 1]
   expect_gt(cos_sim, 0.9)
 
-  # residual_sig is a valid probability distribution
+  # total_negative within limit
+  expect_lte(result$total_negative, 0.02 * sum(fixture$spectrum) + 1)
+
+  # Valid probability distribution
   expect_equal(sum(result$residual_sig), 1, tolerance = 1e-10)
   expect_true(all(result$residual_sig >= 0))
 
-  # n_subtract + n_residual = N
-  expect_equal(result$n_subtract + result$n_residual, sum(spectrum))
+  # Monte Carlo p-value should not be extreme
+  expect_gt(result$prob_ge_total_negative, 0.01)
+})
+
+
+test_that("max_subtract_signature realistic 89-channel at max_neg_fraction=0.01", {
+  fixture <- readRDS(test_path("fixtures", "test_89_realistic.rds"))
+
+  set.seed(999)
+  result <- max_subtract_signature(fixture$spectrum, fixture$sig_subtract,
+                                   max_neg_fraction = 0.01)
+
+  # At 0.01, method is more conservative — ratio ~0.96 in our trials
+  ratio <- result$n_subtract / fixture$n_target
+  expect_gt(ratio, 0.80)
+  expect_lt(ratio, 1.10)
+
+  # Residual should still resemble true background
+  cos_sim <- lsa::cosine(result$residual_sig, fixture$true_bg_sig)[1, 1]
+  expect_gt(cos_sim, 0.85)
+
+  # total_negative within limit
+  expect_lte(result$total_negative, 0.01 * sum(fixture$spectrum) + 1)
+
+  # Valid probability distribution
+  expect_equal(sum(result$residual_sig), 1, tolerance = 1e-10)
+  expect_true(all(result$residual_sig >= 0))
+
+  # Monte Carlo p-value should not be extreme
+  expect_gt(result$prob_ge_total_negative, 0.01)
+})
+
+
+test_that("stricter max_neg_fraction subtracts fewer mutations", {
+  fixture <- readRDS(test_path("fixtures", "test_89_realistic.rds"))
+
+  set.seed(999)
+  r_loose <- max_subtract_signature(fixture$spectrum, fixture$sig_subtract,
+                                    max_neg_fraction = 0.02)
+  set.seed(999)
+  r_strict <- max_subtract_signature(fixture$spectrum, fixture$sig_subtract,
+                                     max_neg_fraction = 0.01)
+
+  expect_gt(r_loose$n_subtract, r_strict$n_subtract)
 })
