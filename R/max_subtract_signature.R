@@ -21,6 +21,10 @@
 #' @param max_neg_fraction Maximum total negative residual count as a fraction
 #'   of \code{sum(spectrum)}.
 #'
+#' @param nbinom.size Dispersion parameter for the negative binomial
+#'   distribution used in the Monte Carlo p-value simulation; smaller
+#'   values mean more overdispersion.
+#'
 #' @return A list with elements:
 #' \describe{
 #'   \item{\code{n_subtract}}{Maximum number of mutations subtractable
@@ -33,14 +37,16 @@
 #'   \item{\code{n_negative_channels}}{Number of channels with negative
 #'     residuals at the estimated \code{n_subtract}.}
 #'   \item{\code{prob_ge_total_negative}}{Monte Carlo estimated probability
-#'     that Poisson-sampled spectra (using the estimated \code{n_subtract},
-#'     \code{residual_sig}, and \code{sig_to_subtract}) would produce a
-#'     total negative count >= the observed \code{total_negative}.}
+#'     that negative-binomial-sampled spectra (using the estimated
+#'     \code{n_subtract}, \code{residual_sig}, and \code{sig_to_subtract})
+#'     would produce a total negative count >= the observed
+#'     \code{total_negative}.}
 #' }
 #'
 #' @export
 max_subtract_signature <- function(spectrum, sig_to_subtract,
-                          max_neg_fraction = 0.05) {
+                          max_neg_fraction = 0.05,
+                          nbinom.size = 10) {
 
   # Extract numeric vectors from matrix inputs if needed
   if (is.matrix(spectrum)) {
@@ -114,14 +120,16 @@ max_subtract_signature <- function(spectrum, sig_to_subtract,
   # Estimate probability of getting >= total_negative negative mutations
   # by Monte Carlo simulation. Under the model, the observed spectrum is
   # n_subtract draws from sig_to_subtract + n_residual draws from residual_sig.
-  # Simulate Poisson draws per channel for each component, subtract the
-  # expected sig_to_subtract contribution, and measure total negative.
+  # Simulate negative binomial draws per channel for each component, subtract
+  # the expected sig_to_subtract contribution, and measure total negative.
   n_residual <- N - n_subtract
   n_sim <- 1000
   expected_subtract <- n_subtract * sig_vec
   sim_neg_totals <- vapply(seq_len(n_sim), function(i) {
-    sim_subtract <- stats::rpois(n_channels, lambda = expected_subtract)
-    sim_residual <- stats::rpois(n_channels, lambda = n_residual * residual_sig)
+    sim_subtract <- stats::rnbinom(n_channels, mu = expected_subtract,
+                                   size = nbinom.size)
+    sim_residual <- stats::rnbinom(n_channels, mu = n_residual * residual_sig,
+                                   size = nbinom.size)
     sim_spectrum <- sim_subtract + sim_residual
     sim_resid <- sim_spectrum - expected_subtract
     sum(abs(sim_resid[sim_resid < 0]))

@@ -135,3 +135,75 @@ test_that("stricter max_neg_fraction subtracts fewer mutations", {
 
   expect_gt(r_loose$n_subtract, r_strict$n_subtract)
 })
+
+
+# --- SBS96 tests using COSMIC v3.3 signatures ---
+
+test_that("max_subtract_signature realistic SBS96 at max_neg_fraction=0.02", {
+  fixture <- readRDS(test_path("fixtures", "test_96_realistic.rds"))
+
+  set.seed(999)
+  result <- max_subtract_signature(fixture$spectrum, fixture$sig_subtract,
+                                   max_neg_fraction = 0.02)
+
+  # n_subtract should be close to true (ratio ~1.05 in our trials)
+  ratio <- result$n_subtract / fixture$n_target
+  expect_gt(ratio, 0.85)
+  expect_lt(ratio, 1.15)
+
+  # Residual should resemble true background
+  cos_sim <- lsa::cosine(result$residual_sig, fixture$true_bg_sig)[1, 1]
+  expect_gt(cos_sim, 0.9)
+
+  # total_negative within limit
+  expect_lte(result$total_negative, 0.02 * sum(fixture$spectrum) + 1)
+
+  # Valid probability distribution
+  expect_equal(sum(result$residual_sig), 1, tolerance = 1e-10)
+  expect_true(all(result$residual_sig >= 0))
+
+  # Monte Carlo p-value should not be extreme
+  expect_gt(result$prob_ge_total_negative, 0.01)
+})
+
+
+test_that("max_subtract_signature realistic SBS96 at max_neg_fraction=0.01", {
+  fixture <- readRDS(test_path("fixtures", "test_96_realistic.rds"))
+
+  set.seed(999)
+  result <- max_subtract_signature(fixture$spectrum, fixture$sig_subtract,
+                                   max_neg_fraction = 0.01)
+
+  # At 0.01, more conservative — ratio ~0.99 in our trials
+  ratio <- result$n_subtract / fixture$n_target
+  expect_gt(ratio, 0.80)
+  expect_lt(ratio, 1.10)
+
+  # Residual should resemble true background
+  cos_sim <- lsa::cosine(result$residual_sig, fixture$true_bg_sig)[1, 1]
+  expect_gt(cos_sim, 0.85)
+
+  # total_negative within limit
+  expect_lte(result$total_negative, 0.01 * sum(fixture$spectrum) + 1)
+
+  # Valid probability distribution
+  expect_equal(sum(result$residual_sig), 1, tolerance = 1e-10)
+  expect_true(all(result$residual_sig >= 0))
+
+  # Monte Carlo p-value should not be extreme
+  expect_gt(result$prob_ge_total_negative, 0.01)
+})
+
+
+test_that("stricter max_neg_fraction subtracts fewer mutations for SBS96", {
+  fixture <- readRDS(test_path("fixtures", "test_96_realistic.rds"))
+
+  set.seed(999)
+  r_loose <- max_subtract_signature(fixture$spectrum, fixture$sig_subtract,
+                                    max_neg_fraction = 0.02)
+  set.seed(999)
+  r_strict <- max_subtract_signature(fixture$spectrum, fixture$sig_subtract,
+                                     max_neg_fraction = 0.01)
+
+  expect_gt(r_loose$n_subtract, r_strict$n_subtract)
+})
