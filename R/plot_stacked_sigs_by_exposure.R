@@ -142,7 +142,8 @@ function (catalog, plot.SBS12, cex = par("cex"), grid = TRUE,
 #' 
 #' @export
 #' 
-#' @import graphics, RColorBrewer
+#' @import graphics
+#' @import RColorBrewer
 #' 
 # plot_stacked_sigs_by_exposure
 plot_stacked_sigs_by_exposure <- function(sigs, exposures) {
