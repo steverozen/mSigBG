@@ -2,9 +2,10 @@
 % Please edit documentation in R/max_subtract_signature.R
 \name{max_subtract_signature}
 \alias{max_subtract_signature}
-\title{Subtract the maximum attributable mutations of a known signature from a spectrum.}
+\title{Subtract the maximum attributable mutations with a limit on total negative
+residual counts.}
 \usage{
-max_subtract_signature(spectrum, sig_to_subtract, target_prob = NULL)
+max_subtract_signature(spectrum, sig_to_subtract, max_neg_fraction = 0.05)
 }
 \arguments{
 \item{spectrum}{A single observed spectrum as a numeric vector or a
@@ -15,34 +16,33 @@ summing to 1) representing the signature to subtract. Can be a
 single-column matrix or a plain numeric vector of length
 matching \code{spectrum}.}
 
-\item{target_prob}{The target probability that a multinomial draw of
-\code{n_subtract} mutations from \code{sig_to_subtract} does not
-exceed the observed count in any channel. If \code{NULL}, defaults
-to 0.05 for spectra with <= 100 channels or 0.01 for longer spectra.}
+\item{max_neg_fraction}{Maximum total negative residual count as a fraction
+of \code{sum(spectrum)}.}
 }
 \value{
 A list with elements:
 \describe{
-\item{\code{n_subtract}}{Estimated maximum number of mutations
-attributable to \code{sig_to_subtract}.}
+\item{\code{n_subtract}}{Maximum number of mutations subtractable
+within the negative-count limit.}
 \item{\code{n_residual}}{Remaining mutations (\code{N - n_subtract}).}
 \item{\code{residual_sig}}{Residual signature profile (non-negative
 numeric vector summing to 1).}
-\item{\code{prob_no_exceed}}{The actual P(no exceed) at the
-estimated \code{n_subtract}.}
-\item{\code{target_prob}}{The target probability used.}
+\item{\code{total_negative}}{Sum of absolute values of negative residuals
+at the estimated \code{n_subtract}.}
+\item{\code{n_negative_channels}}{Number of channels with negative
+residuals at the estimated \code{n_subtract}.}
+\item{\code{prob_ge_total_negative}}{Monte Carlo estimated probability
+that Poisson-sampled spectra (using the estimated \code{n_subtract},
+\code{residual_sig}, and \code{sig_to_subtract}) would produce a
+total negative count >= the observed \code{total_negative}.}
 }
 }
 \description{
 Given a single observed mutational spectrum and a known signature to subtract,
-find the maximum number of mutations (\code{n_subtract}) attributable to the
-known signature such that a Poisson-approximated multinomial draw of
-\code{n_subtract} mutations from \code{sig_to_subtract} has at least
-\code{target_prob} probability of not exceeding the observed spectrum count
-in any channel. In other words, for every channel \eqn{j}, the draw from
-\code{sig_to_subtract} should plausibly fit within the observed \code{spectrum[j]}.
+find the maximum number of mutations (\code{n_subtract}) such that the
+sum of absolute values of negative residuals does not exceed
+\code{max_neg_fraction * sum(spectrum)}.
 
-The residual signature profile is computed by subtracting
-\code{n_subtract * sig_to_subtract} from the spectrum, clamping negative
-values to zero, and normalizing.
+The residual signature profile is computed by clamping negative values to
+zero and normalizing.
 }
