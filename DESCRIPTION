@@ -12,6 +12,8 @@ Description: Separate a "background mutational signature" from a set of observed
     cultures exposed to mutagens. 'mSigBG' stands for Mutational Signature
     BackGround.
 License: GPL-3
+URL: https://github.com/steverozen/mSigBG, https://steverozen.github.io/mSigBG/
+BugReports: https://github.com/steverozen/mSigBG/issues
 Encoding: UTF-8
 Language: en-US
 Depends: R (>= 4.0)
